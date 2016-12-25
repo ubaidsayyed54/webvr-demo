@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/three": "^0.0.28",
+    "three": "^0.83.0",
+    "ts-loader": "^1.3.3",
+    "typescript": "^2.1.4"
+  }
+}
