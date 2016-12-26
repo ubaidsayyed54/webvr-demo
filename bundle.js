@@ -46,6 +46,7 @@
 
 	"use strict";
 	const Three = __webpack_require__(1);
+	const earth_jpg_1 = __webpack_require__(2);
 	let scene = new Three.Scene();
 	let camera = new Three.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 100);
 	let renderer = new Three.WebGLRenderer({ antialias: true });
@@ -57,19 +58,16 @@
 	light.position.set(10, 20, 20);
 	scene.add(ambientLight);
 	scene.add(light);
-	let geometry = new Three.TorusGeometry(2, 1, 64, 100);
-	let material = new Three.MeshPhongMaterial({
-	    color: 0x555500,
-	    specular: 0xffffff,
-	    shininess: 2
+	let loader = new Three.TextureLoader();
+	loader.load(earth_jpg_1.default, texture => {
+	    let geometry = new Three.SphereGeometry(1000, 20, 20);
+	    let material = new Three.MeshBasicMaterial({ map: texture, overdraw: 0.5 });
+	    let mesh = new Three.Mesh(geometry, material);
+	    scene.add(mesh);
 	});
-	let donut = new Three.Mesh(geometry, material);
-	donut.scale.set(0.5, 0.5, 0.5);
-	scene.add(donut);
 	camera.position.z = 5;
 	let render = () => {
 	    requestAnimationFrame(render);
-	    donut.rotation.x += 0.01;
 	    renderer.render(scene, camera);
 	};
 	render();
@@ -43424,6 +43422,12 @@
 
 	})));
 
+
+/***/ },
+/* 2 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "3eb59ba301144cedc687fb7457a180b8.jpg";
 
 /***/ }
 /******/ ]);

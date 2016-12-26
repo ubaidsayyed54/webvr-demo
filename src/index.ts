@@ -1,5 +1,7 @@
 import * as Three from 'three';
 
+declare function require(string): string;
+
 /* initialize renderer, scene, camera */
 
 let scene = new Three.Scene();
@@ -11,7 +13,7 @@ document.body.appendChild(renderer.domElement);
 
 /* prepare light */
 
-let ambientLight = new Three.AmbientLight(0xffffff, 0.05);
+let ambientLight = new Three.AmbientLight(0xffffff, 0.5);
 let light = new Three.DirectionalLight(0xffffff, 1);
 light.position.set(10, 20, 20);
 scene.add(ambientLight);
@@ -19,24 +21,31 @@ scene.add(light);
 
 /* prepare geometry */
 
-let geometry = new Three.TorusGeometry(2, 1, 64, 100);
-let material = new Three.MeshPhongMaterial({
-  color: 0x555500,
-  specular: 0xffffff,
-  shininess: 2
-});
+let loader = new Three.TextureLoader();
 
-let donut = new Three.Mesh(geometry, material);
-donut.scale.set(0.5, 0.5, 0.5);
-scene.add(donut);
+let torus:Three.Object3D;
+loader.load(require('./textures/earth.jpg'), map => {
+  loader.load(require('./textures/earth_normal.jpg'), normalMap => {
+    let geometry = new Three.SphereGeometry(2, 256, 256, 256);
+    let material = new Three.MeshPhongMaterial({
+      map,
+      normalMap,
+      shininess: 0
+    });
+    torus = new Three.Mesh(geometry, material);
+    scene.add(torus);
+  });
+});
 
 /* initialize everything else */
 
 camera.position.z = 5;
 
 let render = () => {
+  if (torus) {
+    torus.rotation.y += 0.01;
+  }
   requestAnimationFrame(render);
-  donut.rotation.x += 0.01;
   renderer.render(scene, camera);
 };
 
