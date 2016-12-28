@@ -1,11 +1,15 @@
 import * as Three from 'three';
 
 declare function require(string): string;
+declare function VRFrameData(): void;
 
 /* initialize renderer, scene, camera */
 
+const NEAR = 0.1;
+const FAR = 10000;
+
 let scene = new Three.Scene();
-let camera = new Three.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 100);
+let camera = new Three.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
 let renderer = new Three.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0xffffff, 1);
@@ -33,20 +37,82 @@ loader.load(require('./textures/earth.jpg'), map => {
       shininess: 0
     });
     torus = new Three.Mesh(geometry, material);
+    torus.position.z = -10;
     scene.add(torus);
   });
 });
 
 /* initialize everything else */
 
-camera.position.z = 5;
+this.firstVRFrame = true;
 
 let render = () => {
+  // for first frame, use the standard api
+  if (this.firstVRFrame) {
+    this.firstVRFrame = false;
+    return this.vrDisplay.requestAnimationFrame(render);
+  }
+
+  // get the vr user information
+  let vrFrameData = new VRFrameData();
+  this.vrDisplay.getFrameData(vrFrameData);
+
+  renderer.autoClear = false;
+  scene.matrixAutoUpdate = false;
+  camera.matrixAutoUpdate = false;
+  renderer.clear();
+
   if (torus) {
     torus.rotation.y += 0.01;
   }
-  requestAnimationFrame(render);
+
+  // only draw the first half
+  renderer.setViewport(0, 0, window.innerWidth * 0.5, window.innerHeight);
+  const lProjectionMatrix = vrFrameData.leftProjectionMatrix;
+  const lViewMatrix = vrFrameData.leftViewMatrix;
+  camera.projectionMatrix.fromArray(lProjectionMatrix);
+  scene.matrix.fromArray(lViewMatrix);
+  scene.updateMatrixWorld(true);
   renderer.render(scene, camera);
+
+  // clear depth buffer
+  renderer.clearDepth();
+
+  // only draw the second half
+  renderer.setViewport(window.innerWidth * 0.5, 0, window.innerWidth * 0.5, window.innerHeight);
+  const rProjectionMatrix = vrFrameData.rightProjectionMatrix;
+  const rViewMatrix = vrFrameData.rightViewMatrix;
+  camera.projectionMatrix.fromArray(rProjectionMatrix);
+  scene.matrix.fromArray(rViewMatrix);
+  scene.updateMatrixWorld(true);
+  renderer.render(scene, camera);
+  this.vrDisplay.requestAnimationFrame(render);
+  this.vrDisplay.submitFrame();
 };
 
-render();
+if (!navigator.getVRDisplays) {
+  alert('Your brower does not support WebVR :(');
+} else {
+  navigator.getVRDisplays().then(displays => {
+    // Filter down to devices that can present
+    displays = displays.filter(display => display.capabilities.canPresent);
+
+    // if no devices available, quit.
+    if (displays.length == 0) {
+      alert('No devices available able to present.');
+      return;
+    }
+
+    // store the first display we find
+    this.vrDisplay = displays[0];
+    this.vrDisplay.depthNear = NEAR;
+    this.vrDisplay.depthFar = FAR;
+
+    this.vrDisplay.requestPresent([{ source: renderer.domElement }])
+      .then(() => {
+        console.log('VR display initialized. Start rendering ...');
+        render();
+      })
+      .catch(e => alert('Failed to initialize VR display.' + e.printStack()));
+  });
+}

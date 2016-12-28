@@ -813,6 +813,10 @@ esprima@^2.6.0:
   version "2.7.3"
   resolved "https://registry.yarnpkg.com/esprima/-/esprima-2.7.3.tgz#96e3b70d5779f6ad49cd032673d1c312767ba581"
 
+eventemitter3@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-2.0.2.tgz#20ce4891909ce9f35b088c94fab40e2c96f473ac"
+
 events@^1.0.0:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/events/-/events-1.1.1.tgz#9ebdb7635ad099c70dcc4c2a1f5004288e8bd924"
@@ -3024,6 +3028,13 @@ webpack-core@~0.6.9:
   dependencies:
     source-list-map "~0.1.7"
     source-map "~0.4.1"
+
+webvr-polyfill:
+  version "0.9.25"
+  resolved "https://registry.yarnpkg.com/webvr-polyfill/-/webvr-polyfill-0.9.25.tgz#0ac1c4bff5433893ac7335144f8aca164cb397fa"
+  dependencies:
+    eventemitter3 "^2.0.2"
+    object-assign "^4.0.1"
 
 whet.extend@~0.9.9:
   version "0.9.9"
