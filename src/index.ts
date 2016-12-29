@@ -1,4 +1,4 @@
-import 'webvr-polyfill/src/main';
+import 'webvr-polyfill';
 import * as THREE from 'three';
 
 declare function require(string): string;
