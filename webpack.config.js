@@ -31,6 +31,8 @@ module.exports = {
   plugins: [
     new CleanWebpackPlugin(['dist']),
     new CheckerPlugin(),
-    new HtmlWebpackPlugin()
+    new HtmlWebpackPlugin({
+      template: 'index.html'
+    })
   ]
 }
