@@ -8,6 +8,6 @@
     "three": "^0.83.0",
     "typescript": "^2.1.4",
     "webpack": "^1.14.0",
-    "webvr-polyfill": "^0.9.25"
+    "webvr-polyfill": "github.com/ymcatar/webvr-polyfill.git"
   }
 }

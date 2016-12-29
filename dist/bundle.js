@@ -65,8 +65,8 @@
 	        this.firstVRFrame = true;
 	        this.scene = new THREE.Scene();
 	        this.sceneSkybox = new THREE.Scene();
-	        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
-	        this.cameraSkybox = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
+	        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
+	        this.cameraSkybox = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
 	        this.renderer = new THREE.WebGLRenderer({ antialias: false });
 	        this.renderer.setPixelRatio(window.devicePixelRatio);
 	        this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -91,7 +91,6 @@
 	                __webpack_require__(7),
 	                __webpack_require__(8)
 	            ]);
-	            this.textures['skybox'].format = THREE.RGBFormat;
 	            let loader = new THREE.TextureLoader();
 	            this.textures['earth'] = yield loader.load(__webpack_require__(9));
 	            this.textures['earthNormal'] = yield loader.load(__webpack_require__(10));
@@ -103,7 +102,7 @@
 	            envMap: this.textures['skybox'],
 	            shininess: 100
 	        }));
-	        this.objects['earth'].position.z = -5;
+	        this.objects['earth'].position.z = -10;
 	        this.scene.add(this.objects['earth']);
 	    }
 	    prepareSkybox() {
@@ -119,15 +118,16 @@
 	        this.sceneSkybox.add(this.objects['skybox']);
 	    }
 	    partialRender(projectionMatrix, viewMatrix, x, y, width, height) {
-	        this.camera.projectionMatrix.fromArray(projectionMatrix);
-	        this.cameraSkybox.projectionMatrix.fromArray(projectionMatrix);
-	        this.scene.matrix.fromArray(viewMatrix);
-	        this.scene.updateMatrixWorld(true);
-	        this.sceneSkybox.matrix.fromArray(viewMatrix);
-	        this.sceneSkybox.updateMatrixWorld(true);
+	        if (projectionMatrix && viewMatrix) {
+	            this.camera.projectionMatrix.fromArray(projectionMatrix);
+	            this.cameraSkybox.projectionMatrix.fromArray(projectionMatrix);
+	            this.scene.matrix.fromArray(viewMatrix);
+	            this.sceneSkybox.matrix.fromArray(viewMatrix);
+	            this.scene.updateMatrixWorld(true);
+	            this.sceneSkybox.updateMatrixWorld(true);
+	        }
 	        this.renderer.setViewport(x, y, width, height);
 	        this.renderer.render(this.sceneSkybox, this.cameraSkybox);
-	        this.renderer.setViewport(x, y, height, height);
 	        this.renderer.render(this.scene, this.camera);
 	    }
 	    update() {
@@ -136,7 +136,24 @@
 	    render() {
 	        if (this.firstVRFrame) {
 	            this.firstVRFrame = false;
-	            return this.vrDisplay.requestAnimationFrame(this.render.bind(this));
+	            if (this.vrDisplay) {
+	                return this.vrDisplay.requestAnimationFrame(this.render.bind(this));
+	            }
+	            else {
+	                return requestAnimationFrame(this.render.bind(this));
+	            }
+	        }
+	        this.renderer.clear();
+	        this.update();
+	        if (!this.vrDisplay || this.vrDisplay.isPresenting == false) {
+	            this.renderer.autoClear = false;
+	            this.scene.matrixAutoUpdate = true;
+	            this.sceneSkybox.matrixAutoUpdate = true;
+	            this.camera.matrixAutoUpdate = true;
+	            this.cameraSkybox.matrixAutoUpdate = true;
+	            this.partialRender(null, null, 0, 0, window.innerWidth, window.innerHeight);
+	            requestAnimationFrame(this.render.bind(this));
+	            return;
 	        }
 	        this.vrDisplay.requestAnimationFrame(this.render.bind(this));
 	        let vrFrameData = new VRFrameData();
@@ -146,22 +163,22 @@
 	        this.sceneSkybox.matrixAutoUpdate = false;
 	        this.camera.matrixAutoUpdate = false;
 	        this.cameraSkybox.matrixAutoUpdate = false;
-	        this.renderer.clear();
-	        this.update();
-	        if (this.vrDisplay.isPresenting == false) {
-	            this.partialRender(vrFrameData.leftProjectionMatrix, vrFrameData.leftViewMatrix, 0, 0, window.innerWidth, window.innerHeight);
-	            return;
-	        }
 	        this.partialRender(vrFrameData.leftProjectionMatrix, vrFrameData.leftViewMatrix, 0, 0, window.innerWidth * 0.5, window.innerHeight);
 	        this.renderer.clearDepth();
 	        this.partialRender(vrFrameData.rightProjectionMatrix, vrFrameData.rightViewMatrix, window.innerWidth * 0.5, 0, window.innerWidth * 0.5, window.innerHeight);
 	        this.vrDisplay.submitFrame();
 	    }
 	    initVR() {
-	        if (!navigator.getVRDisplays) {
-	            throw new Error('Your brower does not support WebVR :(');
-	        }
-	        navigator.getVRDisplays().then(displays => {
+	        return __awaiter(this, void 0, void 0, function* () {
+	            if (!navigator.getVRDisplays) {
+	                throw new Error('Missing important WebVR api.');
+	            }
+	            try {
+	                var displays = yield navigator.getVRDisplays();
+	            }
+	            catch (e) {
+	                throw new Error('Failed to initialize VR display.');
+	            }
 	            displays = displays.filter(display => display.capabilities.canPresent);
 	            if (displays.length == 0) {
 	                throw new Error('No devices available able to present.');
@@ -209,11 +226,22 @@
 	document.getElementById('btn-fullscreen').onclick = app.onEnterFullscreen.bind(app);
 	(() => __awaiter(this, void 0, void 0, function* () {
 	    try {
-	        app.initVR();
+	        if (!navigator.getVRDisplays) {
+	            throw new Error('Your brower does not support WebVR.');
+	        }
+	        else {
+	            yield app.initVR();
+	        }
+	    }
+	    catch (e) {
+	        alert(e + '. A boring version will be loaded instead. :(');
+	        document.getElementById('btn-fullscreen').remove();
+	    }
+	    try {
 	        app.prepareLight();
 	        yield app.prepareTexture();
-	        app.prepareGeometry();
 	        app.prepareSkybox();
+	        app.prepareGeometry();
 	        app.render();
 	    }
 	    catch (e) {
@@ -2523,6 +2551,18 @@
 	    baselineLensDistance: 0.035,
 	    screenLensDistance: 0.039,
 	    distortionCoefficients: [0.34, 0.55],
+	    inverseCoefficients: [-0.33836704, -0.18162185, 0.862655, -1.2462051,
+	      1.0560602, -0.58208317, 0.21609078, -0.05444823, 0.009177956,
+	      -9.904169E-4, 6.183535E-5, -1.6981803E-6]
+	  }),
+	  CardboardKnockoff: new CardboardViewer({
+	    id: 'Cardboard Knockoff',
+	    label: 'Cardboard Knockoff',
+	    fov: 50,
+	    interLensDistance: 0.043,
+	    baselineLensDistance: 0.035,
+	    screenLensDistance: 0.038,
+	    distortionCoefficients: [0.110, 0.070],
 	    inverseCoefficients: [-0.33836704, -0.18162185, 0.862655, -1.2462051,
 	      1.0560602, -0.58208317, 0.21609078, -0.05444823, 0.009177956,
 	      -9.904169E-4, 6.183535E-5, -1.6981803E-6]

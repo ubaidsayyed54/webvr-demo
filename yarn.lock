@@ -1068,6 +1068,14 @@ gifsicle@^3.0.0:
     bin-wrapper "^3.0.0"
     logalot "^2.0.0"
 
+"git+https://git@github.com/ymcatar/webvr-polyfill.git":
+  name webvr-polyfill
+  version "0.9.25-forked-2"
+  resolved "git+https://git@github.com/ymcatar/webvr-polyfill.git#bb98438a8359b6a24c18642181102ab6ab14453c"
+  dependencies:
+    eventemitter3 "^2.0.2"
+    object-assign "^4.0.1"
+
 glob-base@^0.3.0:
   version "0.3.0"
   resolved "https://registry.yarnpkg.com/glob-base/-/glob-base-0.3.0.tgz#dbb164f6221b1c0b1ccf82aea328b497df0ea3c4"
@@ -3028,13 +3036,6 @@ webpack-core@~0.6.9:
   dependencies:
     source-list-map "~0.1.7"
     source-map "~0.4.1"
-
-webvr-polyfill:
-  version "0.9.25"
-  resolved "https://registry.yarnpkg.com/webvr-polyfill/-/webvr-polyfill-0.9.25.tgz#0ac1c4bff5433893ac7335144f8aca164cb397fa"
-  dependencies:
-    eventemitter3 "^2.0.2"
-    object-assign "^4.0.1"
 
 whet.extend@~0.9.9:
   version "0.9.9"
