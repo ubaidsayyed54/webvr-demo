@@ -1,5 +1,5 @@
-import 'webvr-polyfill';
 import * as THREE from 'three';
+import 'webvr-polyfill';
 
 declare function require(string): string;
 declare function VRFrameData(): void;
@@ -33,9 +33,9 @@ class App {
   constructor() {
     this.scene = new THREE.Scene();
     this.sceneSkybox = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
-    this.cameraSkybox = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
-    this.renderer = new THREE.WebGLRenderer({ antialias: false });
+    this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
+    this.cameraSkybox = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0xffffff, 1);
@@ -43,9 +43,9 @@ class App {
   }
 
   prepareLight() {
-    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.5);
+    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.01);
     this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 1);
-    this.lights['directional'].position.set(10, 20, 20);
+    this.lights['directional'].position.set(100, 20, 20);
     this.scene.add(this.lights['ambient']);
     this.scene.add(this.lights['directional']);
   }
@@ -54,32 +54,32 @@ class App {
     /* skybox texture */
     let cubeLoader = new THREE.CubeTextureLoader();
     this.textures['skybox'] = await cubeLoader.load([
-      require('./textures/skybox/craterlake_rt.jpg'),
-      require('./textures/skybox/craterlake_lf.jpg'),
-      require('./textures/skybox/craterlake_up.jpg'),
-      require('./textures/skybox/craterlake_dn.jpg'),
-      require('./textures/skybox/craterlake_bk.jpg'),
-      require('./textures/skybox/craterlake_ft.jpg')
+      require('./textures/skybox/corona_rt.png'),
+      require('./textures/skybox/corona_lf.png'),
+      require('./textures/skybox/corona_up.png'),
+      require('./textures/skybox/corona_dn.png'),
+      require('./textures/skybox/corona_bk.png'),
+      require('./textures/skybox/corona_ft.png')
     ]);
     /* geometry texture */
     let loader = new THREE.TextureLoader();
-    this.textures['earth'] = await loader.load(require('./textures/earth.jpg'));
-    this.textures['earthNormal'] = await loader.load(require('./textures/earth_normal.jpg'));
+    this.textures['sphere'] = await loader.load(require('./textures/sphere.jpg'));
+    this.textures['sphereNormal'] = await loader.load(require('./textures/sphere_normal.jpg'));
   }
 
   prepareGeometry() {
     let loader = new THREE.TextureLoader();
-    this.objects['earth'] = new THREE.Mesh(
-      new THREE.SphereGeometry(2, 256, 256, 256),
+    this.objects['sphere'] = new THREE.Mesh(
+      new THREE.SphereGeometry(2.5, 256, 256, 256),
       new THREE.MeshPhongMaterial({
-        //map: this.textures['earth'],
-        envMap: this.textures['skybox'],
-        //normalMap: this.textures['earthNormal'],
-        shininess: 100
+        color: 0xffffff,
+        map: this.textures['sphere'],
+        normalMap: this.textures['sphereNormal'],
+        shininess: 0
       })
     );
-    this.objects['earth'].position.z = -10;
-    this.scene.add(this.objects['earth']);
+    this.objects['sphere'].position.z = -10.0;
+    this.scene.add(this.objects['sphere']);
   }
 
   prepareSkybox() {
@@ -121,7 +121,7 @@ class App {
   }
 
   update() {
-    this.objects['earth'].rotation.y += 0.01;
+    this.objects['sphere'].rotation.y += 0.01;
   }
 
   render() {
