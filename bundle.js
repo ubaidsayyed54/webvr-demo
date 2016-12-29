@@ -56,41 +56,74 @@
 	const Three = __webpack_require__(1);
 	__webpack_require__(2);
 	const NEAR = 0.1;
-	const FAR = 10000;
+	const FAR = 1000;
 	class App {
 	    constructor() {
+	        this.lights = {};
+	        this.objects = {};
+	        this.textures = {};
 	        this.firstVRFrame = true;
 	        this.scene = new Three.Scene();
+	        this.sceneSkybox = new Three.Scene();
 	        this.camera = new Three.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
+	        this.cameraSkybox = new Three.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
 	        this.renderer = new Three.WebGLRenderer({ antialias: true });
 	        this.renderer.setSize(window.innerWidth, window.innerHeight);
 	        this.renderer.setClearColor(0xffffff, 1);
 	        document.body.appendChild(this.renderer.domElement);
 	    }
 	    prepareLight() {
-	        this.lights = {};
 	        this.lights['ambient'] = new Three.AmbientLight(0xffffff, 0.5);
 	        this.lights['directional'] = new Three.DirectionalLight(0xffffff, 1);
 	        this.lights['directional'].position.set(10, 20, 20);
 	        this.scene.add(this.lights['ambient']);
 	        this.scene.add(this.lights['directional']);
 	    }
-	    prepareGeometry() {
+	    prepareTexture() {
 	        return __awaiter(this, void 0, void 0, function* () {
-	            this.objects = {};
+	            let cubeLoader = new Three.CubeTextureLoader();
+	            this.textures['skybox'] = yield cubeLoader.load([
+	                __webpack_require__(3),
+	                __webpack_require__(4),
+	                __webpack_require__(5),
+	                __webpack_require__(6),
+	                __webpack_require__(7),
+	                __webpack_require__(8)
+	            ]);
+	            this.textures['skybox'].format = Three.RGBFormat;
 	            let loader = new Three.TextureLoader();
-	            let map = yield loader.load(__webpack_require__(3));
-	            let normalMap = yield loader.load(__webpack_require__(4));
-	            this.objects['earth'] = new Three.Mesh(new Three.SphereGeometry(2, 256, 256, 256), new Three.MeshPhongMaterial({ map, normalMap, shininess: 0 }));
-	            this.objects['earth'].position.z = -10;
-	            this.scene.add(this.objects['earth']);
 	        });
+	    }
+	    prepareGeometry() {
+	        let loader = new Three.TextureLoader();
+	        this.objects['earth'] = new Three.Mesh(new Three.SphereGeometry(2, 256, 256, 256), new Three.MeshPhongMaterial({
+	            envMap: this.textures['skybox'],
+	            shininess: 10
+	        }));
+	        this.objects['earth'].position.z = -5;
+	        this.scene.add(this.objects['earth']);
+	    }
+	    prepareSkybox() {
+	        let shader = Three.ShaderLib['cube'];
+	        shader.uniforms['tCube'].value = this.textures['skybox'];
+	        this.objects['skybox'] = new Three.Mesh(new Three.CubeGeometry(FAR, FAR, FAR, 1, 1, 1), new Three.ShaderMaterial({
+	            fragmentShader: shader.fragmentShader,
+	            vertexShader: shader.vertexShader,
+	            uniforms: shader.uniforms,
+	            depthWrite: false,
+	            side: Three.BackSide
+	        }));
+	        this.sceneSkybox.add(this.objects['skybox']);
 	    }
 	    partialRender(projectionMatrix, viewMatrix, x, y, width, height) {
 	        this.renderer.setViewport(x, y, width, height);
 	        this.camera.projectionMatrix.fromArray(projectionMatrix);
+	        this.cameraSkybox.projectionMatrix.fromArray(projectionMatrix);
 	        this.scene.matrix.fromArray(viewMatrix);
 	        this.scene.updateMatrixWorld(true);
+	        this.sceneSkybox.matrix.fromArray(viewMatrix);
+	        this.sceneSkybox.updateMatrixWorld(true);
+	        this.renderer.render(this.sceneSkybox, this.cameraSkybox);
 	        this.renderer.render(this.scene, this.camera);
 	    }
 	    update() {
@@ -105,13 +138,15 @@
 	        this.vrDisplay.getFrameData(vrFrameData);
 	        this.renderer.autoClear = false;
 	        this.scene.matrixAutoUpdate = false;
+	        this.sceneSkybox.matrixAutoUpdate = false;
 	        this.camera.matrixAutoUpdate = false;
+	        this.cameraSkybox.matrixAutoUpdate = false;
 	        this.renderer.clear();
+	        this.vrDisplay.requestAnimationFrame(this.render.bind(this));
 	        this.update();
 	        this.partialRender(vrFrameData.leftProjectionMatrix, vrFrameData.leftViewMatrix, 0, 0, window.innerWidth * 0.5, window.innerHeight);
 	        this.renderer.clearDepth();
 	        this.partialRender(vrFrameData.rightProjectionMatrix, vrFrameData.rightViewMatrix, window.innerWidth * 0.5, 0, window.innerWidth * 0.5, window.innerHeight);
-	        this.vrDisplay.requestAnimationFrame(this.render.bind(this));
 	        this.vrDisplay.submitFrame();
 	    }
 	    initVR() {
@@ -142,7 +177,9 @@
 	    try {
 	        yield app.initVR();
 	        app.prepareLight();
-	        yield app.prepareGeometry();
+	        yield app.prepareTexture();
+	        app.prepareGeometry();
+	        app.prepareSkybox();
 	        app.render();
 	    }
 	    catch (e) {
@@ -49822,13 +49859,37 @@
 /* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "3eb59ba301144cedc687fb7457a180b8.jpg";
+	module.exports = __webpack_require__.p + "f66a654c77aeb2afd60040a7c0113780.jpg";
 
 /***/ },
 /* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "aa8dcec67ace361085405ac09b4760e9.jpg";
+	module.exports = __webpack_require__.p + "b872cee3ffde053421f2c580023af9b3.jpg";
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "1c48bbd2ca43bcc9c27d80d3681d9d22.jpg";
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "b9e1275b3dc40f722292b2f38ebb1bc3.jpg";
+
+/***/ },
+/* 7 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "61debca8d033879384bd33a294254065.jpg";
+
+/***/ },
+/* 8 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "010bced9ee1e4352159ad9a1a3847461.jpg";
 
 /***/ }
 /******/ ]);
