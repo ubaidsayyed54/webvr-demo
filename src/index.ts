@@ -69,12 +69,12 @@ class App {
   async prepareTexture() {
     let loader = new THREE.TextureLoader();
     /* skybox texture, should have use cubemap, but does not work for some reason */
-    this.textures['skybox_0'] = await loader.load(require('./textures/skybox/dust_rt.jpg'));
-    this.textures['skybox_1'] = await loader.load(require('./textures/skybox/dust_lf.jpg'));
-    this.textures['skybox_2'] = await loader.load(require('./textures/skybox/dust_up.jpg'));
-    this.textures['skybox_3'] = await loader.load(require('./textures/skybox/dust_dn.jpg'));
-    this.textures['skybox_4'] = await loader.load(require('./textures/skybox/dust_bk.jpg'));
-    this.textures['skybox_5'] = await loader.load(require('./textures/skybox/dust_ft.jpg'));
+    this.textures['skybox_0'] = await loader.load(require('./textures/skybox/corona_rt.png'));
+    this.textures['skybox_1'] = await loader.load(require('./textures/skybox/corona_lf.png'));
+    this.textures['skybox_2'] = await loader.load(require('./textures/skybox/corona_up.png'));
+    this.textures['skybox_3'] = await loader.load(require('./textures/skybox/corona_dn.png'));
+    this.textures['skybox_4'] = await loader.load(require('./textures/skybox/corona_bk.png'));
+    this.textures['skybox_5'] = await loader.load(require('./textures/skybox/corona_ft.png'));
     /* geometry texture */
     this.textures['grass'] = await loader.load(require('./textures/grass.jpg'));
   }
@@ -110,10 +110,11 @@ class App {
       new THREE.MeshFaceMaterial(
         _.range(0, 6).map(i => new THREE.MeshBasicMaterial({
           map: this.textures[`skybox_${i}`],
-          side: THREE.BackSide
+          side: THREE.BackSide,
+          fog: false
         }))
       )
-    )
+    );
     this.scene.add(this.objects['skybox']);
   }
 

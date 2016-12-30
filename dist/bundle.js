@@ -6461,7 +6461,8 @@
 	    prepareSkybox() {
 	        this.objects['skybox'] = new THREE.Mesh(new THREE.CubeGeometry(20, 20, 20, 1, 1, 1), new THREE.MeshFaceMaterial(_.range(0, 6).map(i => new THREE.MeshBasicMaterial({
 	            map: this.textures[`skybox_${i}`],
-	            side: THREE.BackSide
+	            side: THREE.BackSide,
+	            fog: false
 	        }))));
 	        this.scene.add(this.objects['skybox']);
 	    }
@@ -67229,37 +67230,37 @@
 /* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "5f874c3f9cab00f79f487b555a8ab50a.jpg";
+	module.exports = __webpack_require__.p + "8385f7dbef920942d15af79308d23921.png";
 
 /***/ },
 /* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "8613da2d1611a885c52c81e06a0154ad.jpg";
+	module.exports = __webpack_require__.p + "498d01a4e5101428eaf8d73bf341b59a.png";
 
 /***/ },
 /* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "e07dc96b637bf5f363bf9144a9f2b3ad.jpg";
+	module.exports = __webpack_require__.p + "29645d49596e18f4b15602e587ce8f6a.png";
 
 /***/ },
 /* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "8054299d389ab6e59d36cb9522902b05.jpg";
+	module.exports = __webpack_require__.p + "421c2f35cda4129291439c56f9d8d188.png";
 
 /***/ },
 /* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "c5d25a6b5a279c178102bd3b43a0ce01.jpg";
+	module.exports = __webpack_require__.p + "88f31a077a803a988101cbf5c3d4b6f0.png";
 
 /***/ },
 /* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "cca021594fed668cae0827b77bfc2227.jpg";
+	module.exports = __webpack_require__.p + "718e64bb71310bee1eab0f88fb6f162d.png";
 
 /***/ },
 /* 13 */
