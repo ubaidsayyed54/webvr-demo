@@ -1,9 +1,10 @@
 var CheckerPlugin = require('awesome-typescript-loader').CheckerPlugin;
 var CleanWebpackPlugin = require('clean-webpack-plugin');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
+var webpack = require('webpack');
 
 module.exports = {
-  entry: './src/index.ts',
+  entry: ['webvr-polyfill', './src/index.ts'],
   devtool: 'source-map',
   output: {
     filename: 'bundle.js',
@@ -14,6 +15,7 @@ module.exports = {
     root: './src'
   },
   module: {
+    noParse: /node_modules\/webvr-polyfill\/build/,
     loaders: [
       {
         test: /\.(jpe?g|png|gif|svg)$/,

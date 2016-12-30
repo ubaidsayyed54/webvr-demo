@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-
-import 'webvr-polyfill';
+import * as _ from 'lodash';
 
 declare function require(string): string;
 declare function VRFrameData(): void;
+
+const VRControls: any = require('imports-loader?THREE=three!exports?THREE.VRControls!three/examples/js/controls/VRControls.js');
 
 interface ObjectOf<T> {
   [key: string]: T;
@@ -18,16 +19,14 @@ const de2ra = function(degree) {
 const NEAR = 0.1;
 const FAR = 1000;
 const FLOOR = -0.1;
+const SHADOW_MAP_SIZE = 512;
 
 class App {
 
   private scene: THREE.Scene;
-  private sceneSkybox: THREE.Scene;
-
   private camera: THREE.PerspectiveCamera;
-  private cameraSkybox: THREE.PerspectiveCamera;
-
   private renderer: THREE.WebGLRenderer;
+  private controls: THREE.VRControls;
 
   private lights: ObjectOf<THREE.Light> = {};
   private objects: ObjectOf<THREE.Object3D> = {};
@@ -38,21 +37,28 @@ class App {
 
   constructor() {
     this.scene = new THREE.Scene();
-    this.sceneSkybox = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
-    this.cameraSkybox = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
+
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0xffffff, 1);
+
+    this.renderer.gammaInput = true;
+    this.renderer.gammaOutput = true;
+
+    /* controls */
+    this.controls = new VRControls(this.camera);
+
     document.body.appendChild(this.renderer.domElement);
   }
 
   prepareLight() {
-    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.3);
-    this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 0.7);
-    this.lights['directional'].position.set(20, 10, 0);
+    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.05);
     this.scene.add(this.lights['ambient']);
+
+    this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 0.7);
+    this.lights['directional'].position.set(-500, 500, 0);
     this.scene.add(this.lights['directional']);
   }
 
@@ -61,18 +67,15 @@ class App {
   }
 
   async prepareTexture() {
-    /* skybox texture */
-    let cubeLoader = new THREE.CubeTextureLoader();
-    this.textures['skybox'] = await cubeLoader.load([
-      require('./textures/skybox/dust_rt.jpg'),
-      require('./textures/skybox/dust_lf.jpg'),
-      require('./textures/skybox/dust_up.jpg'),
-      require('./textures/skybox/dust_dn.jpg'),
-      require('./textures/skybox/dust_bk.jpg'),
-      require('./textures/skybox/dust_ft.jpg')
-    ]);
-    /* geometry texture */
     let loader = new THREE.TextureLoader();
+    /* skybox texture, should have use cubemap, but does not work for some reason */
+    this.textures['skybox_0'] = await loader.load(require('./textures/skybox/dust_rt.jpg'));
+    this.textures['skybox_1'] = await loader.load(require('./textures/skybox/dust_lf.jpg'));
+    this.textures['skybox_2'] = await loader.load(require('./textures/skybox/dust_up.jpg'));
+    this.textures['skybox_3'] = await loader.load(require('./textures/skybox/dust_dn.jpg'));
+    this.textures['skybox_4'] = await loader.load(require('./textures/skybox/dust_bk.jpg'));
+    this.textures['skybox_5'] = await loader.load(require('./textures/skybox/dust_ft.jpg'));
+    /* geometry texture */
     this.textures['grass'] = await loader.load(require('./textures/grass.jpg'));
   }
 
@@ -83,13 +86,15 @@ class App {
         resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(materials)));
       });
     });
+
     /* tree */
     this.objects['tree'] = await loadPromise(require('file-loader!./models/tree.json'));
-    this.objects['tree'].position.set(0, FLOOR, -3);
+    this.objects['tree'].position.set(0, FLOOR, -2);
     this.scene.add(this.objects['tree']);
+
     /* ground */
     this.objects['ground'] = new THREE.Mesh(
-      new THREE.BoxGeometry(5, 5, 0.1, 1, 1, 1),
+      new THREE.BoxGeometry(5, 5, 0.02, 1, 1, 1),
       new THREE.MeshPhongMaterial({
         map: this.textures['grass']
       })
@@ -100,19 +105,16 @@ class App {
   }
 
   prepareSkybox() {
-    let shader = THREE.ShaderLib['cube'];
-    shader.uniforms['tCube'].value = this.textures['skybox'];
     this.objects['skybox'] = new THREE.Mesh(
-      new THREE.CubeGeometry(FAR, FAR, FAR, 1, 1, 1),
-      new THREE.ShaderMaterial({
-        fragmentShader: shader.fragmentShader,
-        vertexShader: shader.vertexShader,
-        uniforms: shader.uniforms,
-        depthWrite: false,
-        side: THREE.BackSide
-      })
+      new THREE.CubeGeometry(20, 20, 20, 1, 1, 1),
+      new THREE.MeshFaceMaterial(
+        _.range(0, 6).map(i => new THREE.MeshBasicMaterial({
+          map: this.textures[`skybox_${i}`],
+          side: THREE.BackSide
+        }))
+      )
     )
-    this.sceneSkybox.add(this.objects['skybox']);
+    this.scene.add(this.objects['skybox']);
   }
 
   partialRender(
@@ -125,40 +127,27 @@ class App {
   ) {
     if (projectionMatrix && viewMatrix) {
       this.camera.projectionMatrix.fromArray(projectionMatrix);
-      this.cameraSkybox.projectionMatrix.fromArray(projectionMatrix);
       this.scene.matrix.fromArray(viewMatrix);
-      this.sceneSkybox.matrix.fromArray(viewMatrix);
       this.scene.updateMatrixWorld(true);
-      this.sceneSkybox.updateMatrixWorld(true);
     }
-
     this.renderer.setViewport(x, y, width, height);
-    this.renderer.render(this.sceneSkybox, this.cameraSkybox);
     this.renderer.render(this.scene, this.camera);
   }
 
   update() {
+    this.objects['skybox'].position.copy(this.camera.position);
   }
 
   render() {
-    if (this.firstVRFrame) {
-      this.firstVRFrame = false;
-      if (this.vrDisplay) {
-        return this.vrDisplay.requestAnimationFrame(this.render.bind(this));
-      } else {
-        return requestAnimationFrame(this.render.bind(this));
-      }
-    }
-
-    this.renderer.clear();
     this.update();
+    this.renderer.clear();
 
     if (!this.vrDisplay || this.vrDisplay.isPresenting == false) { // if not in VR mode, only render the left halve
+      requestAnimationFrame(this.render.bind(this));
+      this.controls.update();
       this.renderer.autoClear = false;
       this.scene.matrixAutoUpdate = true;
-      this.sceneSkybox.matrixAutoUpdate = true;
       this.camera.matrixAutoUpdate = true;
-      this.cameraSkybox.matrixAutoUpdate = true;
       this.partialRender(
         null,
         null,
@@ -167,11 +156,11 @@ class App {
         window.innerWidth,
         window.innerHeight
       );
-      requestAnimationFrame(this.render.bind(this));
       return;
     }
 
     this.vrDisplay.requestAnimationFrame(this.render.bind(this));
+    this.controls.update();
 
     // get the vr user information
     let vrFrameData = new VRFrameData();
@@ -179,9 +168,7 @@ class App {
 
     this.renderer.autoClear = false;
     this.scene.matrixAutoUpdate = false;
-    this.sceneSkybox.matrixAutoUpdate = false;
     this.camera.matrixAutoUpdate = false;
-    this.cameraSkybox.matrixAutoUpdate = false;
 
     // only draw the first half
     this.partialRender(
@@ -230,7 +217,7 @@ class App {
     this.vrDisplay.depthNear = NEAR;
     this.vrDisplay.depthFar = FAR;
 
-    // await this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
+    //await this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
   }
 
   async onEnterFullscreen() {
@@ -256,9 +243,7 @@ class App {
 
   onResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.cameraSkybox.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
-    this.cameraSkybox.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 }
