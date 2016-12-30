@@ -230,7 +230,7 @@ class App {
     this.vrDisplay.depthNear = NEAR;
     this.vrDisplay.depthFar = FAR;
 
-    await this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
+    // await this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
   }
 
   async onEnterFullscreen() {
