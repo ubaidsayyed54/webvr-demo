@@ -201,7 +201,6 @@
 	            this.vrDisplay = displays[0];
 	            this.vrDisplay.depthNear = NEAR;
 	            this.vrDisplay.depthFar = FAR;
-	            yield this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
 	        });
 	    }
 	    onEnterFullscreen() {
