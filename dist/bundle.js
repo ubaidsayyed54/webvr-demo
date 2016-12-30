@@ -55,8 +55,12 @@
 	};
 	const THREE = __webpack_require__(1);
 	__webpack_require__(2);
+	const de2ra = function (degree) {
+	    return degree * (Math.PI / 180);
+	};
 	const NEAR = 0.1;
 	const FAR = 1000;
+	const FLOOR = -0.1;
 	class App {
 	    constructor() {
 	        this.lights = {};
@@ -65,8 +69,8 @@
 	        this.firstVRFrame = true;
 	        this.scene = new THREE.Scene();
 	        this.sceneSkybox = new THREE.Scene();
-	        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
-	        this.cameraSkybox = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
+	        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
+	        this.cameraSkybox = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
 	        this.renderer = new THREE.WebGLRenderer({ antialias: true });
 	        this.renderer.setPixelRatio(window.devicePixelRatio);
 	        this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -74,11 +78,14 @@
 	        document.body.appendChild(this.renderer.domElement);
 	    }
 	    prepareLight() {
-	        this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.01);
-	        this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 1);
-	        this.lights['directional'].position.set(100, 20, 20);
+	        this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.3);
+	        this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 0.7);
+	        this.lights['directional'].position.set(20, 10, 0);
 	        this.scene.add(this.lights['ambient']);
 	        this.scene.add(this.lights['directional']);
+	    }
+	    prepareEffect() {
+	        this.scene.fog = new THREE.FogExp2(0xffffff, 0.1);
 	    }
 	    prepareTexture() {
 	        return __awaiter(this, void 0, void 0, function* () {
@@ -92,20 +99,27 @@
 	                __webpack_require__(8)
 	            ]);
 	            let loader = new THREE.TextureLoader();
-	            this.textures['sphere'] = yield loader.load(__webpack_require__(9));
-	            this.textures['sphereNormal'] = yield loader.load(__webpack_require__(10));
+	            this.textures['grass'] = yield loader.load(__webpack_require__(9));
 	        });
 	    }
 	    prepareGeometry() {
-	        let loader = new THREE.TextureLoader();
-	        this.objects['sphere'] = new THREE.Mesh(new THREE.SphereGeometry(2.5, 256, 256, 256), new THREE.MeshPhongMaterial({
-	            color: 0xffffff,
-	            map: this.textures['sphere'],
-	            normalMap: this.textures['sphereNormal'],
-	            shininess: 0
-	        }));
-	        this.objects['sphere'].position.z = -10.0;
-	        this.scene.add(this.objects['sphere']);
+	        return __awaiter(this, void 0, void 0, function* () {
+	            let loader = new THREE.JSONLoader();
+	            let loadPromise = (path) => new Promise((resolve, reject) => {
+	                loader.load(path, (geometry, materials) => {
+	                    resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(materials)));
+	                });
+	            });
+	            this.objects['tree'] = yield loadPromise(__webpack_require__(10));
+	            this.objects['tree'].position.set(0, FLOOR, -3);
+	            this.scene.add(this.objects['tree']);
+	            this.objects['ground'] = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 0.1, 1, 1, 1), new THREE.MeshPhongMaterial({
+	                map: this.textures['grass']
+	            }));
+	            this.objects['ground'].rotation.x = de2ra(90);
+	            this.objects['ground'].position.set(0, FLOOR, -3);
+	            this.scene.add(this.objects['ground']);
+	        });
 	    }
 	    prepareSkybox() {
 	        let shader = THREE.ShaderLib['cube'];
@@ -133,7 +147,6 @@
 	        this.renderer.render(this.scene, this.camera);
 	    }
 	    update() {
-	        this.objects['sphere'].rotation.y += 0.01;
 	    }
 	    render() {
 	        if (this.firstVRFrame) {
@@ -188,6 +201,7 @@
 	            this.vrDisplay = displays[0];
 	            this.vrDisplay.depthNear = NEAR;
 	            this.vrDisplay.depthFar = FAR;
+	            yield this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
 	        });
 	    }
 	    onEnterFullscreen() {
@@ -241,9 +255,10 @@
 	    }
 	    try {
 	        app.prepareLight();
+	        app.prepareEffect();
 	        yield app.prepareTexture();
+	        yield app.prepareGeometry();
 	        app.prepareSkybox();
-	        app.prepareGeometry();
 	        app.render();
 	    }
 	    catch (e) {
@@ -49935,49 +49950,49 @@
 /* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "8385f7dbef920942d15af79308d23921.png";
+	module.exports = __webpack_require__.p + "5f874c3f9cab00f79f487b555a8ab50a.jpg";
 
 /***/ },
 /* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "498d01a4e5101428eaf8d73bf341b59a.png";
+	module.exports = __webpack_require__.p + "8613da2d1611a885c52c81e06a0154ad.jpg";
 
 /***/ },
 /* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "c7875f30fea5c363e37a7389eab322f6.png";
+	module.exports = __webpack_require__.p + "e07dc96b637bf5f363bf9144a9f2b3ad.jpg";
 
 /***/ },
 /* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "7118faae9fbe0eab73d04579ca898878.png";
+	module.exports = __webpack_require__.p + "8054299d389ab6e59d36cb9522902b05.jpg";
 
 /***/ },
 /* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "88f31a077a803a988101cbf5c3d4b6f0.png";
+	module.exports = __webpack_require__.p + "c5d25a6b5a279c178102bd3b43a0ce01.jpg";
 
 /***/ },
 /* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "718e64bb71310bee1eab0f88fb6f162d.png";
+	module.exports = __webpack_require__.p + "cca021594fed668cae0827b77bfc2227.jpg";
 
 /***/ },
 /* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "17e2e53c22f0f6d0c64e793f7831635b.jpg";
+	module.exports = __webpack_require__.p + "d2232acbee4664442f576aefd319ea55.jpg";
 
 /***/ },
 /* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__.p + "f9824a962f452e92464949317c554a63.jpg";
+	module.exports = __webpack_require__.p + "6637ae39feed876a1db3e21543846725.json";
 
 /***/ }
 /******/ ]);

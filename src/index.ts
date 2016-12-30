@@ -1,17 +1,23 @@
 import * as THREE from 'three';
+
 import 'webvr-polyfill';
 
 declare function require(string): string;
 declare function VRFrameData(): void;
 
+interface ObjectOf<T> {
+  [key: string]: T;
+}
+
+const de2ra = function(degree) {
+  return degree * (Math.PI/180);
+}
+
 /* initialize renderer, scene, camera */
 
 const NEAR = 0.1;
 const FAR = 1000;
-
-interface ObjectOf<T> {
-  [key: string]: T;
-}
+const FLOOR = -0.1;
 
 class App {
 
@@ -33,8 +39,8 @@ class App {
   constructor() {
     this.scene = new THREE.Scene();
     this.sceneSkybox = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
-    this.cameraSkybox = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, NEAR, FAR);
+    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
+    this.cameraSkybox = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, NEAR, FAR);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,43 +49,54 @@ class App {
   }
 
   prepareLight() {
-    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.01);
-    this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 1);
-    this.lights['directional'].position.set(100, 20, 20);
+    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.3);
+    this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 0.7);
+    this.lights['directional'].position.set(20, 10, 0);
     this.scene.add(this.lights['ambient']);
     this.scene.add(this.lights['directional']);
+  }
+
+  prepareEffect() {
+    this.scene.fog = new THREE.FogExp2(0xffffff, 0.1);
   }
 
   async prepareTexture() {
     /* skybox texture */
     let cubeLoader = new THREE.CubeTextureLoader();
     this.textures['skybox'] = await cubeLoader.load([
-      require('./textures/skybox/corona_rt.png'),
-      require('./textures/skybox/corona_lf.png'),
-      require('./textures/skybox/corona_up.png'),
-      require('./textures/skybox/corona_dn.png'),
-      require('./textures/skybox/corona_bk.png'),
-      require('./textures/skybox/corona_ft.png')
+      require('./textures/skybox/dust_rt.jpg'),
+      require('./textures/skybox/dust_lf.jpg'),
+      require('./textures/skybox/dust_up.jpg'),
+      require('./textures/skybox/dust_dn.jpg'),
+      require('./textures/skybox/dust_bk.jpg'),
+      require('./textures/skybox/dust_ft.jpg')
     ]);
     /* geometry texture */
     let loader = new THREE.TextureLoader();
-    this.textures['sphere'] = await loader.load(require('./textures/sphere.jpg'));
-    this.textures['sphereNormal'] = await loader.load(require('./textures/sphere_normal.jpg'));
+    this.textures['grass'] = await loader.load(require('./textures/grass.jpg'));
   }
 
-  prepareGeometry() {
-    let loader = new THREE.TextureLoader();
-    this.objects['sphere'] = new THREE.Mesh(
-      new THREE.SphereGeometry(2.5, 256, 256, 256),
+  async prepareGeometry() {
+    let loader = new THREE.JSONLoader();
+    let loadPromise = (path: string): Promise<THREE.Object3D> => new Promise((resolve, reject) => {
+      loader.load(path, (geometry, materials) => {
+        resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(materials)));
+      });
+    });
+    /* tree */
+    this.objects['tree'] = await loadPromise(require('file-loader!./models/tree.json'));
+    this.objects['tree'].position.set(0, FLOOR, -3);
+    this.scene.add(this.objects['tree']);
+    /* ground */
+    this.objects['ground'] = new THREE.Mesh(
+      new THREE.BoxGeometry(5, 5, 0.1, 1, 1, 1),
       new THREE.MeshPhongMaterial({
-        color: 0xffffff,
-        map: this.textures['sphere'],
-        normalMap: this.textures['sphereNormal'],
-        shininess: 0
+        map: this.textures['grass']
       })
     );
-    this.objects['sphere'].position.z = -10.0;
-    this.scene.add(this.objects['sphere']);
+    this.objects['ground'].rotation.x = de2ra(90);
+    this.objects['ground'].position.set(0, FLOOR, -3);
+    this.scene.add(this.objects['ground']);
   }
 
   prepareSkybox() {
@@ -121,7 +138,6 @@ class App {
   }
 
   update() {
-    this.objects['sphere'].rotation.y += 0.01;
   }
 
   render() {
@@ -213,6 +229,8 @@ class App {
     this.vrDisplay = displays[0];
     this.vrDisplay.depthNear = NEAR;
     this.vrDisplay.depthFar = FAR;
+
+    await this.vrDisplay.requestPresent([{ source: this.renderer.domElement }]);
   }
 
   async onEnterFullscreen() {
@@ -266,9 +284,10 @@ document.getElementById('btn-fullscreen').onclick = app.onEnterFullscreen.bind(a
   }
   try {
     app.prepareLight();
+    app.prepareEffect();
     await app.prepareTexture();
+    await app.prepareGeometry();
     app.prepareSkybox();
-    app.prepareGeometry();
     app.render();
   } catch (e) {
     alert(e);
