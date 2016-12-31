@@ -60,7 +60,7 @@ class App {
   }
 
   prepareLight() {
-    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xff8080, 0.6);
+    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
     this.lights['hemisphere'].position.set(0, 500, 0);
     this.scene.add(this.lights['hemisphere']);
 
