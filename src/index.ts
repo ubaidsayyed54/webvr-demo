@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import * as _ from 'lodash';
 
+import * as Possion from 'poisson-disk-sampling';
+
 declare function require(string): string;
 declare function VRFrameData(): void;
 
@@ -33,6 +35,7 @@ class App {
 
   private lights: ObjectOf<THREE.Light> = {};
   private objects: ObjectOf<THREE.Object3D> = {};
+  private objectInstances: ObjectOf<THREE.Object3D[]> = {};
   private textures: ObjectOf<THREE.Texture> = {};
 
   private firstVRFrame:boolean = true;
@@ -60,15 +63,16 @@ class App {
   }
 
   prepareLight() {
-    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.1);
     this.lights['hemisphere'].position.set(0, 500, 0);
     this.scene.add(this.lights['hemisphere']);
 
-    this.lights['directional'] = new THREE.DirectionalLight(0xffe6e5, 0.3);
-    this.lights['directional'].position.set(-1, 5, 5);
+    this.lights['fill'] = new THREE.PointLight(0xffffff, 0.2, 100);
+    this.lights['fill'].position.set(0, 0.1, 0);
 
+    this.lights['directional'] = new THREE.DirectionalLight(0xffe6e5, 0.6);
+    this.lights['directional'].position.set(20, 10, 10);
     this.lights['directional'].castShadow = true;
-
     this.lights['directional'].shadow = new THREE.LightShadow(new THREE.PerspectiveCamera(60, 1, 1, 2500));
     this.lights['directional'].shadow.mapSize.width = 1024;
     this.lights['directional'].shadow.mapSize.height = 1024;
@@ -80,7 +84,7 @@ class App {
   }
 
   prepareEffect() {
-    this.scene.fog = new THREE.FogExp2(0xeef6ff, 0.3);
+    this.scene.fog = new THREE.FogExp2(0xeef6ff, 0.32);
   }
 
   async prepareTexture() {
@@ -114,11 +118,42 @@ class App {
     });
 
     /* tree */
-    this.objects['tree'] = await loadPromise(require('file-loader!./models/tree.json'));
-    this.objects['tree'].position.set(1.0, FLOOR - 0.05, -1.2);
-    this.objects['tree'].receiveShadow = true;
-    this.objects['tree'].castShadow = true;
-    this.scene.add(this.objects['tree']);
+    {
+      let model = await loadPromise(require('file-loader!./models/tree.json'));
+      const treeCount = 100;
+
+      // use possion disk sampling to distribute trees
+      this.objectInstances['tree'] = [];
+
+      let points = new Possion([10, 10], 0.5, 25.0).fill();
+
+      for (let i = 0; i < treeCount; i++) {
+        this.objectInstances['tree'][i] = model.clone();
+
+        const x = points[i][0] - 5;
+        const y = points[i][1] - 5;
+
+        // if tree is too close, don't render it
+        if (x * x + y * y < 0.36) {
+          continue;
+        }
+
+        this.objectInstances['tree'][i].scale.setScalar(
+          Math.random() / 10 * 6 + 0.1
+        );
+
+        this.objectInstances['tree'][i].rotation.y = Math.random() * 2 * Math.PI;
+
+        this.objectInstances['tree'][i].position.set(
+          x,
+          FLOOR - this.objectInstances['tree'][i].scale.x * 0.05,
+          y
+        );
+
+        this.objectInstances['tree'][i].castShadow = true;
+        this.scene.add(this.objectInstances['tree'][i]);
+      }
+    }
 
     /* ground */
     this.objects['ground'] = new THREE.Mesh(
@@ -126,7 +161,9 @@ class App {
       new THREE.MeshPhongMaterial({
         map: this.textures['snow'],
         normalMap: this.textures['snowNormal'],
-        shininess: 30
+        shininess: 100,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.2
       })
     );
 
