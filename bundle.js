@@ -6461,7 +6461,7 @@
 	            this.objects['tree'].receiveShadow = true;
 	            this.objects['tree'].castShadow = true;
 	            this.scene.add(this.objects['tree']);
-	            this.objects['ground'] = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000, 1, 1), new THREE.MeshPhongMaterial({
+	            this.objects['ground'] = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000, 10, 10), new THREE.MeshPhongMaterial({
 	                map: this.textures['snow'],
 	                normalMap: this.textures['snowNormal'],
 	                shininess: 30
