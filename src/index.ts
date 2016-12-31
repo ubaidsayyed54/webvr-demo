@@ -33,7 +33,7 @@ class App {
 
   private lights: ObjectOf<THREE.Light> = {};
   private objects: ObjectOf<THREE.Object3D> = {};
-  private textures: ObjectOf<any> = {};
+  private textures: ObjectOf<THREE.Texture> = {};
 
   private firstVRFrame:boolean = true;
   private vrDisplay:any; /* new api not in typescript typings yet */
@@ -85,8 +85,16 @@ class App {
 
   async prepareTexture() {
     let loader = new THREE.TextureLoader();
-    /* skybox texture, should have use cubemap, but does not work for some reason */
+
     /* geometry texture */
+
+    this.textures['snow'] = await loader.load(require('./textures/snow.jpg'));
+    this.textures['snow'].wrapS = this.textures['snow'].wrapT = THREE.RepeatWrapping;
+    this.textures['snow'].repeat = new THREE.Vector2(4096, 4096);
+
+    this.textures['snowNormal'] = await loader.load(require('./textures/snow_normal.png'));
+    this.textures['snowNormal'].wrapS = this.textures['snowNormal'].wrapT = THREE.RepeatWrapping;
+    this.textures['snowNormal'].repeat = new THREE.Vector2(4096, 4096);
   }
 
   async prepareGeometry() {
@@ -115,8 +123,10 @@ class App {
     /* ground */
     this.objects['ground'] = new THREE.Mesh(
       new THREE.PlaneGeometry(1000, 1000, 1, 1),
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff
+      new THREE.MeshPhongMaterial({
+        map: this.textures['snow'],
+        normalMap: this.textures['snowNormal'],
+        shininess: 30
       })
     );
 
@@ -147,16 +157,15 @@ class App {
 			varying vec3 vWorldPosition;
 
 			void main() {
-				float h = normalize( vWorldPosition + offset ).y;
-				gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
+				float h = normalize(vWorldPosition ).y;
+				gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h , 0.0), exponent), 0.0)), 1.0 );
 			}
     `;
 
     const uniforms = {
 			topColor:    { value: new THREE.Color(0x0077ff) },
-			bottomColor: { value: new THREE.Color(0xffffff) },
-			offset:      { value: 33 },
-			exponent:    { value: 0.6 }
+			bottomColor: { value: new THREE.Color(0xdfeeff) },
+			exponent:    { value: 1.0 }
 		};
 
     this.objects['skybox'] = new THREE.Mesh(

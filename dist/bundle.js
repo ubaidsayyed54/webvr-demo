@@ -6435,6 +6435,12 @@
 	    prepareTexture() {
 	        return __awaiter(this, void 0, void 0, function* () {
 	            let loader = new THREE.TextureLoader();
+	            this.textures['snow'] = yield loader.load(__webpack_require__(5));
+	            this.textures['snow'].wrapS = this.textures['snow'].wrapT = THREE.RepeatWrapping;
+	            this.textures['snow'].repeat = new THREE.Vector2(4096, 4096);
+	            this.textures['snowNormal'] = yield loader.load(__webpack_require__(6));
+	            this.textures['snowNormal'].wrapS = this.textures['snowNormal'].wrapT = THREE.RepeatWrapping;
+	            this.textures['snowNormal'].repeat = new THREE.Vector2(4096, 4096);
 	        });
 	    }
 	    prepareGeometry() {
@@ -6450,13 +6456,15 @@
 	                    }))));
 	                });
 	            });
-	            this.objects['tree'] = yield loadPromise(__webpack_require__(5));
+	            this.objects['tree'] = yield loadPromise(__webpack_require__(7));
 	            this.objects['tree'].position.set(1.0, FLOOR - 0.05, -1.2);
 	            this.objects['tree'].receiveShadow = true;
 	            this.objects['tree'].castShadow = true;
 	            this.scene.add(this.objects['tree']);
-	            this.objects['ground'] = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000, 1, 1), new THREE.MeshBasicMaterial({
-	                color: 0xffffff
+	            this.objects['ground'] = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000, 1, 1), new THREE.MeshPhongMaterial({
+	                map: this.textures['snow'],
+	                normalMap: this.textures['snowNormal'],
+	                shininess: 30
 	            }));
 	            this.objects['ground'].rotation.x = de2ra(-90);
 	            this.objects['ground'].position.set(0, FLOOR, 0);
@@ -6483,15 +6491,14 @@
 				varying vec3 vWorldPosition;
 	
 				void main() {
-					float h = normalize( vWorldPosition + offset ).y;
-					gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
+					float h = normalize(vWorldPosition ).y;
+					gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h , 0.0), exponent), 0.0)), 1.0 );
 				}
 	    `;
 	        const uniforms = {
 	            topColor: { value: new THREE.Color(0x0077ff) },
-	            bottomColor: { value: new THREE.Color(0xffffff) },
-	            offset: { value: 33 },
-	            exponent: { value: 0.6 }
+	            bottomColor: { value: new THREE.Color(0xdfeeff) },
+	            exponent: { value: 1.0 }
 	        };
 	        this.objects['skybox'] = new THREE.Mesh(new THREE.SphereGeometry(4000, 32, 15), new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, side: THREE.BackSide }));
 	        this.scene.add(this.objects['skybox']);
@@ -50151,6 +50158,18 @@
 
 /***/ },
 /* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "3a052878747595c51fcb80fcb91a41bf.jpg";
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__.p + "62bb29460aed3ff944890b687960a6ec.png";
+
+/***/ },
+/* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = __webpack_require__.p + "6637ae39feed876a1db3e21543846725.json";
