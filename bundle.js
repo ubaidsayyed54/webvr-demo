@@ -6391,7 +6391,8 @@
 	    });
 	};
 	const THREE = __webpack_require__(3);
-	const VRControls = __webpack_require__(4);
+	const Possion = __webpack_require__(4);
+	const VRControls = __webpack_require__(13);
 	const de2ra = function (degree) {
 	    return degree * (Math.PI / 180);
 	};
@@ -6402,6 +6403,7 @@
 	    constructor() {
 	        this.lights = {};
 	        this.objects = {};
+	        this.objectInstances = {};
 	        this.textures = {};
 	        this.firstVRFrame = true;
 	        this.scene = new THREE.Scene();
@@ -6418,11 +6420,13 @@
 	        document.body.appendChild(this.renderer.domElement);
 	    }
 	    prepareLight() {
-	        this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+	        this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.1);
 	        this.lights['hemisphere'].position.set(0, 500, 0);
 	        this.scene.add(this.lights['hemisphere']);
-	        this.lights['directional'] = new THREE.DirectionalLight(0xffe6e5, 0.3);
-	        this.lights['directional'].position.set(-1, 5, 5);
+	        this.lights['fill'] = new THREE.PointLight(0xffffff, 0.2, 100);
+	        this.lights['fill'].position.set(0, 0.1, 0);
+	        this.lights['directional'] = new THREE.DirectionalLight(0xffe6e5, 0.6);
+	        this.lights['directional'].position.set(20, 10, 10);
 	        this.lights['directional'].castShadow = true;
 	        this.lights['directional'].shadow = new THREE.LightShadow(new THREE.PerspectiveCamera(60, 1, 1, 2500));
 	        this.lights['directional'].shadow.mapSize.width = 1024;
@@ -6430,15 +6434,15 @@
 	        this.scene.add(this.lights['directional']);
 	    }
 	    prepareEffect() {
-	        this.scene.fog = new THREE.FogExp2(0xeef6ff, 0.3);
+	        this.scene.fog = new THREE.FogExp2(0xeef6ff, 0.32);
 	    }
 	    prepareTexture() {
 	        return __awaiter(this, void 0, void 0, function* () {
 	            let loader = new THREE.TextureLoader();
-	            this.textures['snow'] = yield loader.load(__webpack_require__(5));
+	            this.textures['snow'] = yield loader.load(__webpack_require__(14));
 	            this.textures['snow'].wrapS = this.textures['snow'].wrapT = THREE.RepeatWrapping;
 	            this.textures['snow'].repeat = new THREE.Vector2(4096, 4096);
-	            this.textures['snowNormal'] = yield loader.load(__webpack_require__(6));
+	            this.textures['snowNormal'] = yield loader.load(__webpack_require__(15));
 	            this.textures['snowNormal'].wrapS = this.textures['snowNormal'].wrapT = THREE.RepeatWrapping;
 	            this.textures['snowNormal'].repeat = new THREE.Vector2(4096, 4096);
 	        });
@@ -6456,15 +6460,31 @@
 	                    }))));
 	                });
 	            });
-	            this.objects['tree'] = yield loadPromise(__webpack_require__(7));
-	            this.objects['tree'].position.set(1.0, FLOOR - 0.05, -1.2);
-	            this.objects['tree'].receiveShadow = true;
-	            this.objects['tree'].castShadow = true;
-	            this.scene.add(this.objects['tree']);
+	            {
+	                let model = yield loadPromise(__webpack_require__(16));
+	                const treeCount = 100;
+	                this.objectInstances['tree'] = [];
+	                let points = new Possion([10, 10], 0.5, 25.0).fill();
+	                for (let i = 0; i < treeCount; i++) {
+	                    this.objectInstances['tree'][i] = model.clone();
+	                    const x = points[i][0] - 5;
+	                    const y = points[i][1] - 5;
+	                    if (x * x + y * y < 0.36) {
+	                        continue;
+	                    }
+	                    this.objectInstances['tree'][i].scale.setScalar(Math.random() / 10 * 6 + 0.1);
+	                    this.objectInstances['tree'][i].rotation.y = Math.random() * 2 * Math.PI;
+	                    this.objectInstances['tree'][i].position.set(x, FLOOR - this.objectInstances['tree'][i].scale.x * 0.05, y);
+	                    this.objectInstances['tree'][i].castShadow = true;
+	                    this.scene.add(this.objectInstances['tree'][i]);
+	                }
+	            }
 	            this.objects['ground'] = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000, 10, 10), new THREE.MeshPhongMaterial({
 	                map: this.textures['snow'],
 	                normalMap: this.textures['snowNormal'],
-	                shininess: 30
+	                shininess: 100,
+	                emissive: 0xffffff,
+	                emissiveIntensity: 0.2
 	            }));
 	            this.objects['ground'].rotation.x = de2ra(-90);
 	            this.objects['ground'].position.set(0, FLOOR, 0);
@@ -49974,6 +49994,835 @@
 /* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
+	"use strict";
+	
+	module.exports = __webpack_require__(5);
+
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	var zeros = __webpack_require__(6),
+	    moore = __webpack_require__(10),
+	    euclideanDistanceN = __webpack_require__(11),
+	    sphereRandom = __webpack_require__(12);
+	
+	/**
+	 * Get the neighbourhood ordered by distance, including the origin point
+	 * @param {int} dimensionNumber Number of dimensions
+	 * @returns {Array} Neighbourhood
+	 */
+	var getNeighbourhood = function getNeighbourhood (dimensionNumber) {
+	    var neighbourhood = moore(2, dimensionNumber),
+	        origin = [],
+	        dimension;
+	
+	    for (dimension = 0; dimension < dimensionNumber; dimension++) {
+	        origin.push(0);
+	    }
+	
+	    neighbourhood.push(origin);
+	
+	    // sort by ascending distance to optimize proximity checks
+	    // see point 5.1 in Parallel Poisson Disk Sampling by Li-Yi Wei, 2008
+	    // http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.460.3061&rank=1
+	    neighbourhood.sort(function (n1, n2) {
+	        var squareDist1 = 0,
+	            squareDist2 = 0;
+	
+	        for (var dimension = 0; dimension < dimensionNumber; dimension++) {
+	            squareDist1 += Math.pow(n1[dimension], 2);
+	            squareDist2 += Math.pow(n2[dimension], 2);
+	        }
+	
+	        if (squareDist1 < squareDist2) {
+	            return -1;
+	        } else if(squareDist1 > squareDist2) {
+	            return 1;
+	        } else {
+	            return 0;
+	        }
+	    });
+	
+	    return neighbourhood;
+	};
+	
+	
+	/**
+	 * PoissonDiskSampling constructor
+	 * @param {Array} shape Shape of the space
+	 * @param {float} minDistance Minimum distance between each points
+	 * @param {float} [maxDistance] Maximum distance between each points, defaults to minDistance * 2
+	 * @param {int} [maxTries] Number of times the algorithm has to try to place a point in the neighbourhood of another points, defaults to 30
+	 * @param {function|null} [rng] RNG function, defaults to Math.random
+	 * @constructor
+	 */
+	var PoissonDiskSampling = function PoissonDiskSampling (shape, minDistance, maxDistance, maxTries, rng) {
+	    maxDistance = maxDistance || minDistance * 2;
+	
+	    this.shape = shape;
+	    this.dimension = this.shape.length;
+	    this.minDistance = minDistance;
+	    this.deltaDistance = maxDistance - minDistance;
+	    this.cellSize = minDistance / Math.sqrt(this.dimension);
+	    this.maxTries = maxTries || 30;
+	    this.rng = rng || Math.random;
+	
+	    this.neighbourhood = getNeighbourhood(this.dimension);
+	
+	    this.currentPoint = null;
+	    this.processList = [];
+	    this.samplePoints = [];
+	
+	    // cache grid
+	
+	    this.gridShape = [];
+	
+	    for (var i = 0; i < this.dimension; i++) {
+	        this.gridShape.push(Math.ceil(shape[i] / this.cellSize));
+	    }
+	
+	    this.grid = zeros(this.gridShape, 'uint32'); //will store references to samplePoints
+	};
+	
+	PoissonDiskSampling.prototype.shape = null;
+	PoissonDiskSampling.prototype.dimension = null;
+	PoissonDiskSampling.prototype.minDistance = null;
+	PoissonDiskSampling.prototype.deltaDistance = null;
+	PoissonDiskSampling.prototype.cellSize = null;
+	PoissonDiskSampling.prototype.maxTries = null;
+	PoissonDiskSampling.prototype.rng = null;
+	PoissonDiskSampling.prototype.neighbourhood = null;
+	
+	PoissonDiskSampling.prototype.currentPoint = null;
+	PoissonDiskSampling.prototype.processList = null;
+	PoissonDiskSampling.prototype.samplePoints = null;
+	PoissonDiskSampling.prototype.gridShape = null;
+	PoissonDiskSampling.prototype.grid = null;
+	
+	/**
+	 * Add a totally random point in the grid
+	 * @returns {Array} The point added to the grid
+	 */
+	PoissonDiskSampling.prototype.addRandomPoint = function () {
+	    var point = new Array(this.dimension);
+	
+	    for (var i = 0; i < this.dimension; i++) {
+	        point[i] = this.rng() * this.shape[i];
+	    }
+	
+	    return this.addPoint(point);
+	};
+	
+	/**
+	 * Add a given point to the grid
+	 * @param {Array} point Point
+	 * @returns {Array} The point added to the grid
+	 */
+	PoissonDiskSampling.prototype.addPoint = function (point) {
+	    this.processList.push(point);
+	    this.samplePoints.push(point);
+	
+	    var internalArrayIndex = 0,
+	        stride = this.grid.stride,
+	        dimension;
+	
+	    for (dimension = 0; dimension < this.dimension; dimension++) {
+	        internalArrayIndex += ((point[dimension] / this.cellSize) | 0) * stride[dimension];
+	    }
+	
+	    this.grid.data[internalArrayIndex] = this.samplePoints.length; // store the point reference
+	
+	    return point;
+	};
+	
+	/**
+	 * Check whether a given point is in the neighbourhood of existing points
+	 * @param {Array} point Point
+	 * @returns {boolean} Whether the point is in the neighbourhood of another point
+	 * @protected
+	 */
+	PoissonDiskSampling.prototype.inNeighbourhood = function (point) {
+	    var dimensionNumber = this.dimension,
+	        stride = this.grid.stride,
+	        neighbourIndex,
+	        internalArrayIndex,
+	        dimension,
+	        currentDimensionValue,
+	        existingPoint;
+	
+	    for (neighbourIndex = 0; neighbourIndex < this.neighbourhood.length; neighbourIndex++) {
+	        internalArrayIndex = 0;
+	
+	        for (dimension = 0; dimension < dimensionNumber; dimension++) {
+	            currentDimensionValue = ((point[dimension] / this.cellSize) | 0) + this.neighbourhood[neighbourIndex][dimension];
+	
+	            if (currentDimensionValue >= 0 && currentDimensionValue < this.gridShape[dimension]) {
+	                internalArrayIndex += currentDimensionValue * stride[dimension];
+	            }
+	        }
+	
+	        if (this.grid.data[internalArrayIndex] !== 0) {
+	            existingPoint = this.samplePoints[this.grid.data[internalArrayIndex] - 1];
+	
+	            if (euclideanDistanceN(point, existingPoint) < this.minDistance) {
+	                return true;
+	            }
+	        }
+	    }
+	
+	    return false;
+	};
+	
+	/**
+	 * Try to generate a new point in the grid, returns null if it wasn't possible
+	 * @returns {Array|null} The added point or null
+	 */
+	PoissonDiskSampling.prototype.next = function () {
+	    var tries,
+	        angle,
+	        distance,
+	        currentPoint,
+	        newPoint,
+	        inShape,
+	        i;
+	
+	    while (this.processList.length > 0) {
+	        if (this.currentPoint === null) {
+	            this.currentPoint = this.processList.shift();
+	        }
+	
+	        currentPoint = this.currentPoint;
+	
+	        for (tries = 0; tries < this.maxTries; tries++) {
+	            inShape = true;
+	            distance = this.minDistance + this.deltaDistance * this.rng();
+	
+	            if (this.dimension === 2) {
+	                angle = this.rng() * Math.PI * 2;
+	                newPoint = [
+	                    Math.cos(angle),
+	                    Math.sin(angle)
+	                ];
+	            } else {
+	                newPoint = sphereRandom(this.dimension, this.rng);
+	            }
+	
+	            for (i = 0; inShape && i < this.dimension; i++) {
+	                newPoint[i] = currentPoint[i] + newPoint[i] * distance;
+	                inShape = (newPoint[i] >= 0 && newPoint[i] <= this.shape[i] - 1)
+	            }
+	
+	            if (inShape && !this.inNeighbourhood(newPoint)) {
+	                return this.addPoint(newPoint);
+	            }
+	        }
+	
+	        if (tries >= this.maxTries) {
+	            this.currentPoint = null;
+	        }
+	    }
+	
+	    return null;
+	};
+	
+	/**
+	 * Automatically fill the grid, adding a random point to start the process if needed.
+	 * Will block the thread, probably best to use it in a web worker or child process.
+	 * @returns {Array[]} Sample points
+	 */
+	PoissonDiskSampling.prototype.fill = function () {
+	    if (this.samplePoints.length === 0) {
+	        this.addRandomPoint();
+	    }
+	
+	    while(this.next()) {}
+	
+	    return this.samplePoints;
+	};
+	
+	/**
+	 * Get all the points in the grid.
+	 * @returns {Array[]} Sample points
+	 */
+	PoissonDiskSampling.prototype.getAllPoints = function () {
+	    return this.samplePoints;
+	};
+	
+	/**
+	 * Reinitialize the grid as well as the internal state
+	 */
+	PoissonDiskSampling.prototype.reset = function () {
+	    var gridData = this.grid.data,
+	        i = 0;
+	
+	    // reset the cache grid
+	    for (i = 0; i < gridData.length; i++) {
+	        gridData[i] = 0;
+	    }
+	
+	    // new array for the samplePoints as it is passed by reference to the outside
+	    this.samplePoints = [];
+	
+	    // reset the internal state
+	    this.currentPoint = null;
+	    this.processList.length = 0;
+	};
+	
+	module.exports = PoissonDiskSampling;
+
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict"
+	
+	var ndarray = __webpack_require__(7)
+	
+	function dtypeToType(dtype) {
+	  switch(dtype) {
+	    case 'uint8':
+	      return Uint8Array;
+	    case 'uint16':
+	      return Uint16Array;
+	    case 'uint32':
+	      return Uint32Array;
+	    case 'int8':
+	      return Int8Array;
+	    case 'int16':
+	      return Int16Array;
+	    case 'int32':
+	      return Int32Array;
+	    case 'float':
+	    case 'float32':
+	      return Float32Array;
+	    case 'double':
+	    case 'float64':
+	      return Float64Array;
+	    case 'uint8_clamped':
+	      return Uint8ClampedArray;
+	    case 'generic':
+	    case 'buffer':
+	    case 'data':
+	    case 'dataview':
+	      return ArrayBuffer;
+	    case 'array':
+	      return Array;
+	  }
+	}
+	
+	module.exports = function zeros(shape, dtype) {
+	  dtype = dtype || 'float64';
+	  var sz = 1;
+	  for(var i=0; i<shape.length; ++i) {
+	    sz *= shape[i];
+	  }
+	  return ndarray(new (dtypeToType(dtype))(sz), shape);
+	}
+
+
+/***/ },
+/* 7 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var iota = __webpack_require__(8)
+	var isBuffer = __webpack_require__(9)
+	
+	var hasTypedArrays  = ((typeof Float64Array) !== "undefined")
+	
+	function compare1st(a, b) {
+	  return a[0] - b[0]
+	}
+	
+	function order() {
+	  var stride = this.stride
+	  var terms = new Array(stride.length)
+	  var i
+	  for(i=0; i<terms.length; ++i) {
+	    terms[i] = [Math.abs(stride[i]), i]
+	  }
+	  terms.sort(compare1st)
+	  var result = new Array(terms.length)
+	  for(i=0; i<result.length; ++i) {
+	    result[i] = terms[i][1]
+	  }
+	  return result
+	}
+	
+	function compileConstructor(dtype, dimension) {
+	  var className = ["View", dimension, "d", dtype].join("")
+	  if(dimension < 0) {
+	    className = "View_Nil" + dtype
+	  }
+	  var useGetters = (dtype === "generic")
+	
+	  if(dimension === -1) {
+	    //Special case for trivial arrays
+	    var code =
+	      "function "+className+"(a){this.data=a;};\
+	var proto="+className+".prototype;\
+	proto.dtype='"+dtype+"';\
+	proto.index=function(){return -1};\
+	proto.size=0;\
+	proto.dimension=-1;\
+	proto.shape=proto.stride=proto.order=[];\
+	proto.lo=proto.hi=proto.transpose=proto.step=\
+	function(){return new "+className+"(this.data);};\
+	proto.get=proto.set=function(){};\
+	proto.pick=function(){return null};\
+	return function construct_"+className+"(a){return new "+className+"(a);}"
+	    var procedure = new Function(code)
+	    return procedure()
+	  } else if(dimension === 0) {
+	    //Special case for 0d arrays
+	    var code =
+	      "function "+className+"(a,d) {\
+	this.data = a;\
+	this.offset = d\
+	};\
+	var proto="+className+".prototype;\
+	proto.dtype='"+dtype+"';\
+	proto.index=function(){return this.offset};\
+	proto.dimension=0;\
+	proto.size=1;\
+	proto.shape=\
+	proto.stride=\
+	proto.order=[];\
+	proto.lo=\
+	proto.hi=\
+	proto.transpose=\
+	proto.step=function "+className+"_copy() {\
+	return new "+className+"(this.data,this.offset)\
+	};\
+	proto.pick=function "+className+"_pick(){\
+	return TrivialArray(this.data);\
+	};\
+	proto.valueOf=proto.get=function "+className+"_get(){\
+	return "+(useGetters ? "this.data.get(this.offset)" : "this.data[this.offset]")+
+	"};\
+	proto.set=function "+className+"_set(v){\
+	return "+(useGetters ? "this.data.set(this.offset,v)" : "this.data[this.offset]=v")+"\
+	};\
+	return function construct_"+className+"(a,b,c,d){return new "+className+"(a,d)}"
+	    var procedure = new Function("TrivialArray", code)
+	    return procedure(CACHED_CONSTRUCTORS[dtype][0])
+	  }
+	
+	  var code = ["'use strict'"]
+	
+	  //Create constructor for view
+	  var indices = iota(dimension)
+	  var args = indices.map(function(i) { return "i"+i })
+	  var index_str = "this.offset+" + indices.map(function(i) {
+	        return "this.stride[" + i + "]*i" + i
+	      }).join("+")
+	  var shapeArg = indices.map(function(i) {
+	      return "b"+i
+	    }).join(",")
+	  var strideArg = indices.map(function(i) {
+	      return "c"+i
+	    }).join(",")
+	  code.push(
+	    "function "+className+"(a," + shapeArg + "," + strideArg + ",d){this.data=a",
+	      "this.shape=[" + shapeArg + "]",
+	      "this.stride=[" + strideArg + "]",
+	      "this.offset=d|0}",
+	    "var proto="+className+".prototype",
+	    "proto.dtype='"+dtype+"'",
+	    "proto.dimension="+dimension)
+	
+	  //view.size:
+	  code.push("Object.defineProperty(proto,'size',{get:function "+className+"_size(){\
+	return "+indices.map(function(i) { return "this.shape["+i+"]" }).join("*"),
+	"}})")
+	
+	  //view.order:
+	  if(dimension === 1) {
+	    code.push("proto.order=[0]")
+	  } else {
+	    code.push("Object.defineProperty(proto,'order',{get:")
+	    if(dimension < 4) {
+	      code.push("function "+className+"_order(){")
+	      if(dimension === 2) {
+	        code.push("return (Math.abs(this.stride[0])>Math.abs(this.stride[1]))?[1,0]:[0,1]}})")
+	      } else if(dimension === 3) {
+	        code.push(
+	"var s0=Math.abs(this.stride[0]),s1=Math.abs(this.stride[1]),s2=Math.abs(this.stride[2]);\
+	if(s0>s1){\
+	if(s1>s2){\
+	return [2,1,0];\
+	}else if(s0>s2){\
+	return [1,2,0];\
+	}else{\
+	return [1,0,2];\
+	}\
+	}else if(s0>s2){\
+	return [2,0,1];\
+	}else if(s2>s1){\
+	return [0,1,2];\
+	}else{\
+	return [0,2,1];\
+	}}})")
+	      }
+	    } else {
+	      code.push("ORDER})")
+	    }
+	  }
+	
+	  //view.set(i0, ..., v):
+	  code.push(
+	"proto.set=function "+className+"_set("+args.join(",")+",v){")
+	  if(useGetters) {
+	    code.push("return this.data.set("+index_str+",v)}")
+	  } else {
+	    code.push("return this.data["+index_str+"]=v}")
+	  }
+	
+	  //view.get(i0, ...):
+	  code.push("proto.get=function "+className+"_get("+args.join(",")+"){")
+	  if(useGetters) {
+	    code.push("return this.data.get("+index_str+")}")
+	  } else {
+	    code.push("return this.data["+index_str+"]}")
+	  }
+	
+	  //view.index:
+	  code.push(
+	    "proto.index=function "+className+"_index(", args.join(), "){return "+index_str+"}")
+	
+	  //view.hi():
+	  code.push("proto.hi=function "+className+"_hi("+args.join(",")+"){return new "+className+"(this.data,"+
+	    indices.map(function(i) {
+	      return ["(typeof i",i,"!=='number'||i",i,"<0)?this.shape[", i, "]:i", i,"|0"].join("")
+	    }).join(",")+","+
+	    indices.map(function(i) {
+	      return "this.stride["+i + "]"
+	    }).join(",")+",this.offset)}")
+	
+	  //view.lo():
+	  var a_vars = indices.map(function(i) { return "a"+i+"=this.shape["+i+"]" })
+	  var c_vars = indices.map(function(i) { return "c"+i+"=this.stride["+i+"]" })
+	  code.push("proto.lo=function "+className+"_lo("+args.join(",")+"){var b=this.offset,d=0,"+a_vars.join(",")+","+c_vars.join(","))
+	  for(var i=0; i<dimension; ++i) {
+	    code.push(
+	"if(typeof i"+i+"==='number'&&i"+i+">=0){\
+	d=i"+i+"|0;\
+	b+=c"+i+"*d;\
+	a"+i+"-=d}")
+	  }
+	  code.push("return new "+className+"(this.data,"+
+	    indices.map(function(i) {
+	      return "a"+i
+	    }).join(",")+","+
+	    indices.map(function(i) {
+	      return "c"+i
+	    }).join(",")+",b)}")
+	
+	  //view.step():
+	  code.push("proto.step=function "+className+"_step("+args.join(",")+"){var "+
+	    indices.map(function(i) {
+	      return "a"+i+"=this.shape["+i+"]"
+	    }).join(",")+","+
+	    indices.map(function(i) {
+	      return "b"+i+"=this.stride["+i+"]"
+	    }).join(",")+",c=this.offset,d=0,ceil=Math.ceil")
+	  for(var i=0; i<dimension; ++i) {
+	    code.push(
+	"if(typeof i"+i+"==='number'){\
+	d=i"+i+"|0;\
+	if(d<0){\
+	c+=b"+i+"*(a"+i+"-1);\
+	a"+i+"=ceil(-a"+i+"/d)\
+	}else{\
+	a"+i+"=ceil(a"+i+"/d)\
+	}\
+	b"+i+"*=d\
+	}")
+	  }
+	  code.push("return new "+className+"(this.data,"+
+	    indices.map(function(i) {
+	      return "a" + i
+	    }).join(",")+","+
+	    indices.map(function(i) {
+	      return "b" + i
+	    }).join(",")+",c)}")
+	
+	  //view.transpose():
+	  var tShape = new Array(dimension)
+	  var tStride = new Array(dimension)
+	  for(var i=0; i<dimension; ++i) {
+	    tShape[i] = "a[i"+i+"]"
+	    tStride[i] = "b[i"+i+"]"
+	  }
+	  code.push("proto.transpose=function "+className+"_transpose("+args+"){"+
+	    args.map(function(n,idx) { return n + "=(" + n + "===undefined?" + idx + ":" + n + "|0)"}).join(";"),
+	    "var a=this.shape,b=this.stride;return new "+className+"(this.data,"+tShape.join(",")+","+tStride.join(",")+",this.offset)}")
+	
+	  //view.pick():
+	  code.push("proto.pick=function "+className+"_pick("+args+"){var a=[],b=[],c=this.offset")
+	  for(var i=0; i<dimension; ++i) {
+	    code.push("if(typeof i"+i+"==='number'&&i"+i+">=0){c=(c+this.stride["+i+"]*i"+i+")|0}else{a.push(this.shape["+i+"]);b.push(this.stride["+i+"])}")
+	  }
+	  code.push("var ctor=CTOR_LIST[a.length+1];return ctor(this.data,a,b,c)}")
+	
+	  //Add return statement
+	  code.push("return function construct_"+className+"(data,shape,stride,offset){return new "+className+"(data,"+
+	    indices.map(function(i) {
+	      return "shape["+i+"]"
+	    }).join(",")+","+
+	    indices.map(function(i) {
+	      return "stride["+i+"]"
+	    }).join(",")+",offset)}")
+	
+	  //Compile procedure
+	  var procedure = new Function("CTOR_LIST", "ORDER", code.join("\n"))
+	  return procedure(CACHED_CONSTRUCTORS[dtype], order)
+	}
+	
+	function arrayDType(data) {
+	  if(isBuffer(data)) {
+	    return "buffer"
+	  }
+	  if(hasTypedArrays) {
+	    switch(Object.prototype.toString.call(data)) {
+	      case "[object Float64Array]":
+	        return "float64"
+	      case "[object Float32Array]":
+	        return "float32"
+	      case "[object Int8Array]":
+	        return "int8"
+	      case "[object Int16Array]":
+	        return "int16"
+	      case "[object Int32Array]":
+	        return "int32"
+	      case "[object Uint8Array]":
+	        return "uint8"
+	      case "[object Uint16Array]":
+	        return "uint16"
+	      case "[object Uint32Array]":
+	        return "uint32"
+	      case "[object Uint8ClampedArray]":
+	        return "uint8_clamped"
+	    }
+	  }
+	  if(Array.isArray(data)) {
+	    return "array"
+	  }
+	  return "generic"
+	}
+	
+	var CACHED_CONSTRUCTORS = {
+	  "float32":[],
+	  "float64":[],
+	  "int8":[],
+	  "int16":[],
+	  "int32":[],
+	  "uint8":[],
+	  "uint16":[],
+	  "uint32":[],
+	  "array":[],
+	  "uint8_clamped":[],
+	  "buffer":[],
+	  "generic":[]
+	}
+	
+	;(function() {
+	  for(var id in CACHED_CONSTRUCTORS) {
+	    CACHED_CONSTRUCTORS[id].push(compileConstructor(id, -1))
+	  }
+	});
+	
+	function wrappedNDArrayCtor(data, shape, stride, offset) {
+	  if(data === undefined) {
+	    var ctor = CACHED_CONSTRUCTORS.array[0]
+	    return ctor([])
+	  } else if(typeof data === "number") {
+	    data = [data]
+	  }
+	  if(shape === undefined) {
+	    shape = [ data.length ]
+	  }
+	  var d = shape.length
+	  if(stride === undefined) {
+	    stride = new Array(d)
+	    for(var i=d-1, sz=1; i>=0; --i) {
+	      stride[i] = sz
+	      sz *= shape[i]
+	    }
+	  }
+	  if(offset === undefined) {
+	    offset = 0
+	    for(var i=0; i<d; ++i) {
+	      if(stride[i] < 0) {
+	        offset -= (shape[i]-1)*stride[i]
+	      }
+	    }
+	  }
+	  var dtype = arrayDType(data)
+	  var ctor_list = CACHED_CONSTRUCTORS[dtype]
+	  while(ctor_list.length <= d+1) {
+	    ctor_list.push(compileConstructor(dtype, ctor_list.length-1))
+	  }
+	  var ctor = ctor_list[d+1]
+	  return ctor(data, shape, stride, offset)
+	}
+	
+	module.exports = wrappedNDArrayCtor
+
+
+/***/ },
+/* 8 */
+/***/ function(module, exports) {
+
+	"use strict"
+	
+	function iota(n) {
+	  var result = new Array(n)
+	  for(var i=0; i<n; ++i) {
+	    result[i] = i
+	  }
+	  return result
+	}
+	
+	module.exports = iota
+
+/***/ },
+/* 9 */
+/***/ function(module, exports) {
+
+	/*!
+	 * Determine if an object is a Buffer
+	 *
+	 * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+	 * @license  MIT
+	 */
+	
+	// The _isBuffer check is for Safari 5-7 support, because it's missing
+	// Object.prototype.constructor. Remove this eventually
+	module.exports = function (obj) {
+	  return obj != null && (isBuffer(obj) || isSlowBuffer(obj) || !!obj._isBuffer)
+	}
+	
+	function isBuffer (obj) {
+	  return !!obj.constructor && typeof obj.constructor.isBuffer === 'function' && obj.constructor.isBuffer(obj)
+	}
+	
+	// For Node v0.10 support. Remove this eventually.
+	function isSlowBuffer (obj) {
+	  return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
+	}
+
+
+/***/ },
+/* 10 */
+/***/ function(module, exports) {
+
+	module.exports = moore
+	
+	function moore(range, dims) {
+	  dims = dims || 2
+	  range = range || 1
+	  return recurse([], [], 0)
+	
+	  function recurse(array, temp, d) {
+	    if (d === dims-1) {
+	      for (var i = -range; i <= range; i += 1) {
+	        if (i || temp.some(function(n) {
+	          return n
+	        })) array.push(temp.concat(i))
+	      }
+	    } else {
+	      for (var i = -range; i <= range; i += 1) {
+	        recurse(array, temp.concat(i), d+1)
+	      }
+	    }
+	    return array
+	  }
+	}
+
+
+/***/ },
+/* 11 */
+/***/ function(module, exports) {
+
+	"use strict";
+	
+	module.exports = function euclideanDistanceN (point1, point2) {
+	    var result = 0,
+	        i = 0;
+	
+	    for (; i < point1.length; i++) {
+	        result += Math.pow(point1[i] - point2[i], 2);
+	    }
+	
+	    return Math.sqrt(result);
+	};
+
+
+/***/ },
+/* 12 */
+/***/ function(module, exports) {
+
+	"use strict";
+	
+	// sphere-random module by Mikola Lysenko under the MIT License
+	// waiting for https://github.com/scijs/sphere-random/pull/1 to be merged
+	
+	module.exports = sampleSphere;
+	
+	var defaultRng = Math.random;
+	
+	/**
+	 * @param {int} d Dimensions
+	 * @param {Function} [rng]
+	 * @returns {Array}
+	 */
+	function sampleSphere(d, rng) {
+	    var v = new Array(d),
+	        d2 = Math.floor(d/2) << 1,
+	        r2 = 0.0,
+	        rr,
+	        r,
+	        theta,
+	        h,
+	        i;
+	
+	    rng = rng || defaultRng;
+	
+	    for (i = 0; i < d2; i += 2) {
+	        rr = -2.0 * Math.log(rng());
+	        r =  Math.sqrt(rr);
+	        theta = 2.0 * Math.PI * rng();
+	
+	        r2+= rr;
+	        v[i] = r * Math.cos(theta);
+	        v[i+1] = r * Math.sin(theta);
+	    }
+	
+	    if (d % 2) {
+	        var x = Math.sqrt(-2.0 * Math.log(rng())) * Math.cos(2.0 * Math.PI * rng());
+	        v[d - 1] = x;
+	        r2+= Math.pow(x, 2);
+	    }
+	
+	    h = 1.0 / Math.sqrt(r2);
+	
+	    for (i=0; i<d; ++i) {
+	        v[i] *= h;
+	    }
+	
+	    return v;
+	}
+
+
+/***/ },
+/* 13 */
+/***/ function(module, exports, __webpack_require__) {
+
 	/*** IMPORTS FROM imports-loader ***/
 	var THREE = __webpack_require__(3);
 	
@@ -50157,19 +51006,19 @@
 
 
 /***/ },
-/* 5 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = __webpack_require__.p + "3a052878747595c51fcb80fcb91a41bf.jpg";
 
 /***/ },
-/* 6 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = __webpack_require__.p + "62bb29460aed3ff944890b687960a6ec.png";
 
 /***/ },
-/* 7 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = __webpack_require__.p + "6637ae39feed876a1db3e21543846725.json";
