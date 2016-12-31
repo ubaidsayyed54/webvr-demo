@@ -4,6 +4,10 @@ import * as _ from 'lodash';
 declare function require(string): string;
 declare function VRFrameData(): void;
 
+/*
+  shadow map not working for some reason
+*/
+
 const VRControls: any = require('imports-loader?THREE=three!exports?THREE.VRControls!three/examples/js/controls/VRControls.js');
 
 interface ObjectOf<T> {
@@ -16,10 +20,9 @@ const de2ra = function(degree) {
 
 /* initialize renderer, scene, camera */
 
-const NEAR = 0.1;
-const FAR = 1000;
+const NEAR = 0.01;
+const FAR = 10000;
 const FLOOR = -0.1;
-const SHADOW_MAP_SIZE = 512;
 
 class App {
 
@@ -47,6 +50,9 @@ class App {
     this.renderer.gammaInput = true;
     this.renderer.gammaOutput = true;
 
+    this.renderer.shadowMapEnabled = true;
+    this.renderer.shadowMapType = THREE.PCFSoftShadowMap;
+
     /* controls */
     this.controls = new VRControls(this.camera);
 
@@ -54,67 +60,110 @@ class App {
   }
 
   prepareLight() {
-    this.lights['ambient'] = new THREE.AmbientLight(0xffffff, 0.05);
-    this.scene.add(this.lights['ambient']);
+    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xff8080, 0.6);
+    this.lights['hemisphere'].position.set(0, 500, 0);
+    this.scene.add(this.lights['hemisphere']);
 
-    this.lights['directional'] = new THREE.DirectionalLight(0xffffff, 0.7);
-    this.lights['directional'].position.set(-500, 500, 0);
+    this.lights['directional'] = new THREE.DirectionalLight(0xffe6e5, 0.3);
+    this.lights['directional'].position.set(-1, 5, 5);
+
+    this.lights['directional'].castShadow = true;
+
+    this.lights['directional'].shadow = new THREE.LightShadow(new THREE.PerspectiveCamera(60, 1, 1, 2500));
+    this.lights['directional'].shadow.mapSize.width = 1024;
+    this.lights['directional'].shadow.mapSize.height = 1024;
+
+    // let helper = new THREE.CameraHelper(this.lights['directional'].shadow.camera);
+    // this.scene.add(helper);
+
     this.scene.add(this.lights['directional']);
   }
 
   prepareEffect() {
-    this.scene.fog = new THREE.FogExp2(0xffffff, 0.1);
+    this.scene.fog = new THREE.FogExp2(0xeef6ff, 0.3);
   }
 
   async prepareTexture() {
     let loader = new THREE.TextureLoader();
     /* skybox texture, should have use cubemap, but does not work for some reason */
-    this.textures['skybox_0'] = await loader.load(require('./textures/skybox/corona_rt.png'));
-    this.textures['skybox_1'] = await loader.load(require('./textures/skybox/corona_lf.png'));
-    this.textures['skybox_2'] = await loader.load(require('./textures/skybox/corona_up.png'));
-    this.textures['skybox_3'] = await loader.load(require('./textures/skybox/corona_dn.png'));
-    this.textures['skybox_4'] = await loader.load(require('./textures/skybox/corona_bk.png'));
-    this.textures['skybox_5'] = await loader.load(require('./textures/skybox/corona_ft.png'));
     /* geometry texture */
-    this.textures['grass'] = await loader.load(require('./textures/grass.jpg'));
   }
 
   async prepareGeometry() {
     let loader = new THREE.JSONLoader();
+
     let loadPromise = (path: string): Promise<THREE.Object3D> => new Promise((resolve, reject) => {
       loader.load(path, (geometry, materials) => {
-        resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(materials)));
+        resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(
+          materials.map((material: any): any => {
+            if (material.shininess) {
+              material.shininess = 5; // lower shineness for all object
+            }
+            return material;
+          })
+        )));
       });
     });
 
     /* tree */
     this.objects['tree'] = await loadPromise(require('file-loader!./models/tree.json'));
-    this.objects['tree'].position.set(0, FLOOR, -2);
+    this.objects['tree'].position.set(1.0, FLOOR - 0.05, -1.2);
+    this.objects['tree'].receiveShadow = true;
+    this.objects['tree'].castShadow = true;
     this.scene.add(this.objects['tree']);
 
     /* ground */
     this.objects['ground'] = new THREE.Mesh(
-      new THREE.BoxGeometry(5, 5, 0.02, 1, 1, 1),
-      new THREE.MeshPhongMaterial({
-        map: this.textures['grass']
+      new THREE.PlaneGeometry(1000, 1000, 1, 1),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff
       })
     );
-    this.objects['ground'].rotation.x = de2ra(90);
-    this.objects['ground'].position.set(0, FLOOR, -3);
+
+    this.objects['ground'].rotation.x = de2ra(-90);
+    this.objects['ground'].position.set(0, FLOOR, 0);
+    this.objects['ground'].receiveShadow = true;
     this.scene.add(this.objects['ground']);
   }
 
   prepareSkybox() {
+
+    const vertexShader =`
+      varying vec3 vWorldPosition;
+
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `;
+
+    const fragmentShader = `
+      uniform vec3 topColor;
+			uniform vec3 bottomColor;
+			uniform float offset;
+			uniform float exponent;
+
+			varying vec3 vWorldPosition;
+
+			void main() {
+				float h = normalize( vWorldPosition + offset ).y;
+				gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
+			}
+    `;
+
+    const uniforms = {
+			topColor:    { value: new THREE.Color(0x0077ff) },
+			bottomColor: { value: new THREE.Color(0xffffff) },
+			offset:      { value: 33 },
+			exponent:    { value: 0.6 }
+		};
+
     this.objects['skybox'] = new THREE.Mesh(
-      new THREE.CubeGeometry(20, 20, 20, 1, 1, 1),
-      new THREE.MeshFaceMaterial(
-        _.range(0, 6).map(i => new THREE.MeshBasicMaterial({
-          map: this.textures[`skybox_${i}`],
-          side: THREE.BackSide,
-          fog: false
-        }))
-      )
+      new THREE.SphereGeometry(4000, 32, 15),
+      new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, side: THREE.BackSide })
     );
+
     this.scene.add(this.objects['skybox']);
   }
 
