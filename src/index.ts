@@ -122,7 +122,7 @@ class App {
 
     /* ground */
     this.objects['ground'] = new THREE.Mesh(
-      new THREE.PlaneGeometry(1000, 1000, 1, 1),
+      new THREE.PlaneGeometry(1000, 1000, 10, 10),
       new THREE.MeshPhongMaterial({
         map: this.textures['snow'],
         normalMap: this.textures['snowNormal'],
