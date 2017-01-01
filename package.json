@@ -1,5 +1,10 @@
 {
+  "scripts": {
+    "dev": "webpack-dev-server --hot -w --host 0.0.0.0",
+    "build": "NODE_ENV=production webpack -p --config ./webpack.prod.config.js"
+  },
   "dependencies": {
+    "@types/es6-promise": "^0.0.32",
     "@types/three": "^0.0.28",
     "awesome-typescript-loader": "^3.0.0-beta.17",
     "clean-webpack-plugin": "^0.1.14",
@@ -9,6 +14,7 @@
     "imports-loader": "^0.7.0",
     "json-loader": "^0.5.4",
     "lodash": "^4.17.3",
+    "noisejs": "^2.1.0",
     "poisson-disk-sampling": "^1.0.0",
     "raw-loader": "^0.5.1",
     "three": "^0.83.0",

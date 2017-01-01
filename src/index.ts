@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as _ from 'lodash';
 
 import * as Possion from 'poisson-disk-sampling';
+import { Noise } from 'noisejs';
 
 declare function require(string): string;
 declare function VRFrameData(): void;
@@ -26,6 +27,8 @@ const NEAR = 0.01;
 const FAR = 10000;
 const FLOOR = -0.1;
 
+const PARTICLE_COUNT = 1000;
+
 class App {
 
   private scene: THREE.Scene;
@@ -37,6 +40,9 @@ class App {
   private objects: ObjectOf<THREE.Object3D> = {};
   private objectInstances: ObjectOf<THREE.Object3D[]> = {};
   private textures: ObjectOf<THREE.Texture> = {};
+
+  private particles: THREE.Points | any;
+  private particleVelocities: THREE.Vector3[] = [];
 
   private firstVRFrame:boolean = true;
   private vrDisplay:any; /* new api not in typescript typings yet */
@@ -53,8 +59,8 @@ class App {
     this.renderer.gammaInput = true;
     this.renderer.gammaOutput = true;
 
-    this.renderer.shadowMapEnabled = true;
-    this.renderer.shadowMapType = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     /* controls */
     this.controls = new VRControls(this.camera);
@@ -94,11 +100,13 @@ class App {
 
     this.textures['snow'] = await loader.load(require('./textures/snow.jpg'));
     this.textures['snow'].wrapS = this.textures['snow'].wrapT = THREE.RepeatWrapping;
-    this.textures['snow'].repeat = new THREE.Vector2(4096, 4096);
+    this.textures['snow'].repeat = new THREE.Vector2(1024, 1024);
 
     this.textures['snowNormal'] = await loader.load(require('./textures/snow_normal.png'));
     this.textures['snowNormal'].wrapS = this.textures['snowNormal'].wrapT = THREE.RepeatWrapping;
-    this.textures['snowNormal'].repeat = new THREE.Vector2(4096, 4096);
+    this.textures['snowNormal'].repeat = new THREE.Vector2(1024, 1024);
+
+    this.textures['snowflake'] = await loader.load(require('./textures/snowflake.png'));
   }
 
   async prepareGeometry() {
@@ -109,7 +117,7 @@ class App {
         resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(
           materials.map((material: any): any => {
             if (material.shininess) {
-              material.shininess = 5; // lower shineness for all object
+              material.shininess = 10; // lower shineness for all object
             }
             return material;
           })
@@ -117,15 +125,55 @@ class App {
       });
     });
 
+    /* skybox */
+    {
+      const vertexShader =`
+        varying vec3 vWorldPosition;
+
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+      `;
+
+      const fragmentShader = `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+
+        varying vec3 vWorldPosition;
+
+        void main() {
+          float h = normalize(vWorldPosition).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h , 0.0), exponent), 0.0)), 1.0 );
+        }
+      `;
+
+      const uniforms = {
+        topColor:    { value: new THREE.Color(0x0077ff) },
+        bottomColor: { value: new THREE.Color(0xdfeeff) },
+        exponent:    { value: 1.0 }
+      };
+
+      this.objects['skybox'] = new THREE.Mesh(
+        new THREE.SphereGeometry(4000, 32, 15),
+        new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, side: THREE.BackSide })
+      );
+
+      this.scene.add(this.objects['skybox']);
+    }
+
     /* tree */
     {
       let model = await loadPromise(require('file-loader!./models/tree.json'));
-      const treeCount = 100;
+      const treeCount = 120;
 
       // use possion disk sampling to distribute trees
       this.objectInstances['tree'] = [];
 
-      let points = new Possion([10, 10], 0.5, 25.0).fill();
+      let points = new Possion([12, 12], 0.5, 25.0).fill();
 
       for (let i = 0; i < treeCount; i++) {
         this.objectInstances['tree'][i] = model.clone();
@@ -156,61 +204,66 @@ class App {
     }
 
     /* ground */
-    this.objects['ground'] = new THREE.Mesh(
-      new THREE.PlaneGeometry(1000, 1000, 10, 10),
-      new THREE.MeshPhongMaterial({
-        map: this.textures['snow'],
-        normalMap: this.textures['snowNormal'],
-        shininess: 100,
-        emissive: 0xffffff,
-        emissiveIntensity: 0.2
-      })
-    );
+    {
+      const SEGMENT_COUNT = 200;
 
-    this.objects['ground'].rotation.x = de2ra(-90);
-    this.objects['ground'].position.set(0, FLOOR, 0);
-    this.objects['ground'].receiveShadow = true;
-    this.scene.add(this.objects['ground']);
-  }
+      let geometry = new THREE.PlaneGeometry(20, 20, SEGMENT_COUNT - 1, SEGMENT_COUNT - 1);
+      let noiseGenerator = new Noise(Math.random());
 
-  prepareSkybox() {
-
-    const vertexShader =`
-      varying vec3 vWorldPosition;
-
-      void main() {
-        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-        vWorldPosition = worldPosition.xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      for (let i = 0, l = geometry.vertices.length; i < l; i++) {
+        let vertex = geometry.vertices[i];
+        let data = noiseGenerator.perlin2(vertex.x, vertex.y);
+        vertex.z = Math.abs(data * 0.2) - 0.05;
       }
-    `;
 
-    const fragmentShader = `
-      uniform vec3 topColor;
-			uniform vec3 bottomColor;
-			uniform float offset;
-			uniform float exponent;
+      geometry.computeFaceNormals();
+      geometry.computeVertexNormals();
 
-			varying vec3 vWorldPosition;
+      this.objects['ground'] = new THREE.Mesh(
+        geometry,
+        new THREE.MeshStandardMaterial({
+          map: this.textures['snow'],
+          normalMap: this.textures['snowNormal'],
+          emissive: new THREE.Color(0xffffff),
+          emissiveIntensity: 0.5,
+          side: THREE.DoubleSide
+        })
+      );
 
-			void main() {
-				float h = normalize(vWorldPosition ).y;
-				gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h , 0.0), exponent), 0.0)), 1.0 );
-			}
-    `;
+      this.objects['ground'].rotation.x = de2ra(-90);
+      this.objects['ground'].position.set(0, FLOOR, 0);
+      this.objects['ground'].receiveShadow = true;
+      this.scene.add(this.objects['ground']);
+    }
 
-    const uniforms = {
-			topColor:    { value: new THREE.Color(0x0077ff) },
-			bottomColor: { value: new THREE.Color(0xdfeeff) },
-			exponent:    { value: 1.0 }
-		};
+    /* snow */
+    {
+      let geometry = new THREE.Geometry();
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        this.particleVelocities[i] = new THREE.Vector3(
+          Math.random() * 0.005,
+          -Math.random() * 0.01,
+          Math.random() * 0.005
+        );
+        let particle = new THREE.Vector3(
+          Math.random() * 20 - 10,
+          Math.random() * 20 - 10,
+          Math.random() * 20 - 10
+        );
+        geometry.vertices.push(particle);
+      }
 
-    this.objects['skybox'] = new THREE.Mesh(
-      new THREE.SphereGeometry(4000, 32, 15),
-      new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, side: THREE.BackSide })
-    );
+      let materials = new THREE.PointsMaterial({
+        map: this.textures['snowflake'],
+        blending: THREE.AdditiveBlending,
+        size: 0.2,
+        depthTest: false,
+        transparent: true
+      });
 
-    this.scene.add(this.objects['skybox']);
+      this.particles = new THREE.Points(geometry, materials);
+      this.scene.add(this.particles);
+    }
   }
 
   partialRender(
@@ -231,6 +284,16 @@ class App {
   }
 
   update() {
+    /* update particles */
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      this.particles.geometry.vertices[i].add(this.particleVelocities[i]);
+      if (Math.abs(this.particles.geometry.vertices[i].y - FLOOR) < 0.01) {
+        this.particles.geometry.vertices[i].y = 10;
+      }
+    }
+    this.particles.rotation.y += 0.001;
+    this.particles.geometry.verticesNeedUpdate = true;
+
     this.objects['skybox'].position.copy(this.camera.position);
   }
 
@@ -368,7 +431,6 @@ document.getElementById('btn-fullscreen').onclick = app.onEnterFullscreen.bind(a
     app.prepareEffect();
     await app.prepareTexture();
     await app.prepareGeometry();
-    app.prepareSkybox();
     app.render();
   } catch (e) {
     alert(e);

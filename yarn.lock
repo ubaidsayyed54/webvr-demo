@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+"@types/es6-promise@^0.0.32":
+  version "0.0.32"
+  resolved "https://registry.yarnpkg.com/@types/es6-promise/-/es6-promise-0.0.32.tgz#3bcf44fb1e429f3df76188c8c6d874463ba371fd"
+
 "@types/three":
   version "0.0.28"
   resolved "https://registry.yarnpkg.com/@types/three/-/three-0.0.28.tgz#c87fea01450ab0ad337d41cba04273f976d6a545"
@@ -2042,6 +2046,10 @@ node-pre-gyp@^0.6.29:
 node-status-codes@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/node-status-codes/-/node-status-codes-1.0.0.tgz#5ae5541d024645d32a58fcddc9ceecea7ae3ac2f"
+
+noisejs@^2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/noisejs/-/noisejs-2.1.0.tgz#84b4c4cd04ff43367034f65253e213e0d9fe1aff"
 
 nopt@~3.0.6:
   version "3.0.6"
