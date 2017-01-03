@@ -69,7 +69,7 @@ class App {
   }
 
   prepareLight() {
-    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.1);
+    this.lights['hemisphere'] = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.05);
     this.lights['hemisphere'].position.set(0, 500, 0);
     this.scene.add(this.lights['hemisphere']);
 
@@ -77,7 +77,7 @@ class App {
     this.lights['fill'].position.set(0, 0.1, 0);
 
     this.lights['directional'] = new THREE.DirectionalLight(0xffe6e5, 0.6);
-    this.lights['directional'].position.set(20, 10, 10);
+    this.lights['directional'].position.set(20, 10, 2);
     this.lights['directional'].castShadow = true;
     this.lights['directional'].shadow = new THREE.LightShadow(new THREE.PerspectiveCamera(60, 1, 1, 2500));
     this.lights['directional'].shadow.mapSize.width = 1024;
@@ -96,16 +96,6 @@ class App {
   async prepareTexture() {
     let loader = new THREE.TextureLoader();
 
-    /* geometry texture */
-
-    this.textures['snow'] = await loader.load(require('./textures/snow.jpg'));
-    this.textures['snow'].wrapS = this.textures['snow'].wrapT = THREE.RepeatWrapping;
-    this.textures['snow'].repeat = new THREE.Vector2(1024, 1024);
-
-    this.textures['snowNormal'] = await loader.load(require('./textures/snow_normal.png'));
-    this.textures['snowNormal'].wrapS = this.textures['snowNormal'].wrapT = THREE.RepeatWrapping;
-    this.textures['snowNormal'].repeat = new THREE.Vector2(1024, 1024);
-
     this.textures['snowflake'] = await loader.load(require('./textures/snowflake.png'));
   }
 
@@ -117,7 +107,7 @@ class App {
         resolve(new THREE.Mesh(geometry, new THREE.MultiMaterial(
           materials.map((material: any): any => {
             if (material.shininess) {
-              material.shininess = 10; // lower shineness for all object
+              material.shininess = 0; // no shineness for all object for good looking low-poly
             }
             return material;
           })
@@ -158,7 +148,7 @@ class App {
       };
 
       this.objects['skybox'] = new THREE.Mesh(
-        new THREE.SphereGeometry(4000, 32, 15),
+        new THREE.SphereGeometry(200, 32, 15),
         new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, side: THREE.BackSide })
       );
 
@@ -167,16 +157,23 @@ class App {
 
     /* tree */
     {
-      let model = await loadPromise(require('file-loader!./models/tree.json'));
-      const treeCount = 120;
+      let models = [
+        await loadPromise(require('file-loader!./models/tree.json')),
+        await loadPromise(require('file-loader!./models/tree_2.json')),
+        await loadPromise(require('file-loader!./models/tree_3.json')),
+        await loadPromise(require('file-loader!./models/rock.json')),
+        await loadPromise(require('file-loader!./models/rock_2.json'))
+      ];
+
+      const COUNT = 120;
 
       // use possion disk sampling to distribute trees
-      this.objectInstances['tree'] = [];
+      this.objectInstances['objects'] = [];
 
-      let points = new Possion([12, 12], 0.5, 25.0).fill();
+      let points = new Possion([10, 10], 0.3, 25.0).fill();
 
-      for (let i = 0; i < treeCount; i++) {
-        this.objectInstances['tree'][i] = model.clone();
+      for (let i = 0; i < COUNT; i++) {
+        this.objectInstances['objects'][i] = models[i % models.length].clone();
 
         const x = points[i][0] - 5;
         const y = points[i][1] - 5;
@@ -186,20 +183,23 @@ class App {
           continue;
         }
 
-        this.objectInstances['tree'][i].scale.setScalar(
-          Math.random() / 10 * 6 + 0.1
+        this.objectInstances['objects'][i].scale.setScalar(
+          Math.random() / 10 + 0.3
         );
 
-        this.objectInstances['tree'][i].rotation.y = Math.random() * 2 * Math.PI;
+        this.objectInstances['objects'][i].rotation.y = Math.random() * 2 * Math.PI;
 
-        this.objectInstances['tree'][i].position.set(
+        this.objectInstances['objects'][i].rotation.x = Math.random() * 0.05 * Math.PI;
+        this.objectInstances['objects'][i].rotation.z = Math.random() * 0.05 * Math.PI;
+
+        this.objectInstances['objects'][i].position.set(
           x,
-          FLOOR - this.objectInstances['tree'][i].scale.x * 0.05,
+          FLOOR,
           y
         );
 
-        this.objectInstances['tree'][i].castShadow = true;
-        this.scene.add(this.objectInstances['tree'][i]);
+        this.objectInstances['objects'][i].castShadow = true;
+        this.scene.add(this.objectInstances['objects'][i]);
       }
     }
 
@@ -222,11 +222,9 @@ class App {
       this.objects['ground'] = new THREE.Mesh(
         geometry,
         new THREE.MeshStandardMaterial({
-          map: this.textures['snow'],
-          normalMap: this.textures['snowNormal'],
+          color: 0xdddddd,
           emissive: new THREE.Color(0xffffff),
-          emissiveIntensity: 0.5,
-          side: THREE.DoubleSide
+          emissiveIntensity: 0.5
         })
       );
 
@@ -234,6 +232,16 @@ class App {
       this.objects['ground'].position.set(0, FLOOR, 0);
       this.objects['ground'].receiveShadow = true;
       this.scene.add(this.objects['ground']);
+    }
+
+    /* fox */
+    {
+      this.objects['fox'] = await loadPromise(require('file-loader!./models/fox.json'));
+      this.objects['fox'].scale.setScalar(0.05);
+      this.objects['fox'].position.set(-0.4, FLOOR, -0.4);
+      this.objects['fox'].rotation.y = Math.PI / 8.0;
+      this.objects['fox'].castShadow = true;
+      this.scene.add(this.objects['fox']);
     }
 
     /* snow */
@@ -287,7 +295,7 @@ class App {
     /* update particles */
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       this.particles.geometry.vertices[i].add(this.particleVelocities[i]);
-      if (Math.abs(this.particles.geometry.vertices[i].y - FLOOR) < 0.01) {
+      if (Math.abs(this.particles.geometry.vertices[i].y - FLOOR) < -0.1) {
         this.particles.geometry.vertices[i].y = 10;
       }
     }
