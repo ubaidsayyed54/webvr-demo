@@ -34,4 +34,6 @@ In theory it would work for HTC Vive / Oculus Rift but I have no way to verify.
 
 ### Scene
 
-The tree / fox / rock meshes are obtained from http://opengameart.org/.
+* The tree / fox / rock meshes are obtained from http://opengameart.org/.
+
+* Art style inspired by [Google Daydream](https://vr.google.com/daydream/) UI and [low poly art style](https://www.reddit.com/r/low_poly/).
