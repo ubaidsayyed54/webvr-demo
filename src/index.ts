@@ -7,10 +7,6 @@ import { Noise } from 'noisejs';
 declare function require(string): string;
 declare function VRFrameData(): void;
 
-/*
-  shadow map not working for some reason
-*/
-
 const VRControls: any = require('imports-loader?THREE=three!exports?THREE.VRControls!three/examples/js/controls/VRControls.js');
 
 interface ObjectOf<T> {
